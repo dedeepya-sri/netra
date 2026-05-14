@@ -2,7 +2,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
+from app.core.database import Base
 from app.core.database import engine
+
+from app.models.incident import Incident
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Netra API",
