@@ -7,6 +7,8 @@ from app.core.database import engine
 
 from app.models.incident import Incident
 
+from app.routes.incidents import router as incidents_router
+
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -25,6 +27,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(incidents_router)
 
 
 @app.get("/")
