@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.core.database import engine
+from app.core.redis import redis_client
 
 from app.routes.incidents import router as incidents_router
 
@@ -47,4 +48,13 @@ async def db_health_check():
 
     return {
         "database": "connected"
+    }
+
+
+@app.get("/redis-health")
+async def redis_health_check():
+    redis_client.ping()
+
+    return {
+        "redis": "connected"
     }
