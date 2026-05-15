@@ -76,6 +76,25 @@ export async function generateIncident(): Promise<Incident> {
   return response.json();
 }
 
+export async function updateIncidentStatus(
+  incidentId: number,
+  status: string,
+): Promise<Incident> {
+  const response = await fetch(`${BACKEND_URL}/incidents/${incidentId}/status`, {
+    body: JSON.stringify({ status }),
+    headers: {
+      "Content-Type": "application/json",
+    },
+    method: "PATCH",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to update incident status");
+  }
+
+  return response.json();
+}
+
 export async function getRecentIncidentEvents(
   limit = 5,
 ): Promise<IncidentEvent[]> {

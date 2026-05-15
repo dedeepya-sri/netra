@@ -10,6 +10,7 @@ import {
   getBackendHealth,
   getIncidents,
   getRecentIncidentEvents,
+  updateIncidentStatus,
   type Incident,
   type IncidentAnalysis,
   type IncidentEvent,
@@ -61,6 +62,7 @@ export function Dashboard({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGeneratingPostmortem, setIsGeneratingPostmortem] = useState(false);
+  const [isResolving, setIsResolving] = useState(false);
   const [error, setError] = useState<string | null>(initialError);
 
   const openIncidentCount = useMemo(
@@ -152,13 +154,38 @@ export function Dashboard({
     }
   }
 
+  async function handleResolveIncident() {
+    if (!selectedIncident) {
+      return;
+    }
+
+    setIsResolving(true);
+    setError(null);
+
+    try {
+      await updateIncidentStatus(selectedIncident.id, "resolved");
+      await refreshDashboard();
+    } catch (currentError) {
+      setError(
+        currentError instanceof Error
+          ? currentError.message
+          : "Failed to resolve incident",
+      );
+    } finally {
+      setIsResolving(false);
+    }
+  }
+
   useEffect(() => {
     const socket = new WebSocket(INCIDENT_EVENTS_WS_URL);
 
     socket.onmessage = (message) => {
       const event = JSON.parse(message.data) as IncidentEvent;
 
-      if (event.event_type === "incident.created") {
+      if (
+        event.event_type === "incident.created" ||
+        event.event_type === "incident.updated"
+      ) {
         refreshDashboard().catch((currentError) => {
           setError(
             currentError instanceof Error
@@ -292,7 +319,7 @@ export function Dashboard({
             <section className="border border-zinc-800 bg-zinc-950">
               <div className="border-b border-zinc-800 px-4 py-3">
                 <h2 className="text-sm font-semibold">Incident intelligence</h2>
-                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
                   <button
                     className="h-9 border border-zinc-700 bg-zinc-900 px-3 text-xs text-zinc-100 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={!selectedIncident || isAnalyzing}
@@ -308,6 +335,18 @@ export function Dashboard({
                     type="button"
                   >
                     {isGeneratingPostmortem ? "Writing..." : "Postmortem"}
+                  </button>
+                  <button
+                    className="h-9 border border-emerald-800 bg-emerald-950 px-3 text-xs text-emerald-100 hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={
+                      !selectedIncident ||
+                      selectedIncident.status === "resolved" ||
+                      isResolving
+                    }
+                    onClick={handleResolveIncident}
+                    type="button"
+                  >
+                    {isResolving ? "Resolving..." : "Resolve"}
                   </button>
                 </div>
               </div>

@@ -14,11 +14,13 @@ from app.schemas.incident import IncidentCreate
 from app.schemas.incident import IncidentEventResponse
 from app.schemas.incident import IncidentPostmortemResponse
 from app.schemas.incident import IncidentResponse
+from app.schemas.incident import IncidentStatusUpdate
 
 from app.services.incident_analysis import analyze_incident
 from app.services.incident_analysis import generate_postmortem
 from app.services.incident_events import list_recent_incident_events
 from app.services.incident_events import publish_incident_created
+from app.services.incident_events import publish_incident_updated
 from app.services.incident_events import read_incident_events
 from app.services.incident_generator import generate_incident
 
@@ -64,6 +66,36 @@ async def list_incidents():
 @router.get("/events/recent", response_model=list[IncidentEventResponse])
 async def list_recent_events(limit: int = 10):
     return list_recent_incident_events(limit)
+
+
+@router.patch("/{incident_id}/status", response_model=IncidentResponse)
+async def update_incident_status(
+    incident_id: int,
+    payload: IncidentStatusUpdate,
+):
+    allowed_statuses = {"open", "investigating", "resolved"}
+
+    if payload.status not in allowed_statuses:
+        raise HTTPException(status_code=400, detail="Invalid incident status")
+
+    db: Session = SessionLocal()
+
+    incident = db.query(Incident).filter(Incident.id == incident_id).first()
+
+    if incident is None:
+        db.close()
+        raise HTTPException(status_code=404, detail="Incident not found")
+
+    incident.status = payload.status
+
+    db.commit()
+    db.refresh(incident)
+
+    publish_incident_updated(incident)
+
+    db.close()
+
+    return incident
 
 
 @router.websocket("/ws")

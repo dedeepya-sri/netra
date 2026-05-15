@@ -6,10 +6,18 @@ INCIDENT_EVENTS_STREAM = "incidents.events"
 
 
 def publish_incident_created(incident: Incident) -> str:
+    return publish_incident_event("incident.created", incident)
+
+
+def publish_incident_updated(incident: Incident) -> str:
+    return publish_incident_event("incident.updated", incident)
+
+
+def publish_incident_event(event_type: str, incident: Incident) -> str:
     event_id = redis_client.xadd(
         INCIDENT_EVENTS_STREAM,
         {
-            "event_type": "incident.created",
+            "event_type": event_type,
             "incident_id": str(incident.id),
             "title": incident.title,
             "severity": incident.severity,

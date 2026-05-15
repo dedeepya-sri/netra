@@ -10,6 +10,10 @@ class IncidentCreate(BaseModel):
     logs: str
 
 
+class IncidentStatusUpdate(BaseModel):
+    status: str
+
+
 class IncidentResponse(BaseModel):
     id: int
     title: str
