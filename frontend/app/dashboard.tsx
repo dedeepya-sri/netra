@@ -10,6 +10,7 @@ import {
   generatePostmortem,
   getBackendHealth,
   getIncidentRunbook,
+  getIncidentWorkflow,
   getIncidents,
   getRecentIncidentEvents,
   getRunbooks,
@@ -21,6 +22,7 @@ import {
   type IncidentEvent,
   type IncidentPostmortem,
   type IncidentRunbookMatch,
+  type IncidentWorkflow,
   type Runbook,
   type ServiceHealth,
 } from "@/lib/api";
@@ -90,11 +92,13 @@ export function Dashboard({
   const [coach, setCoach] = useState<IncidentCoach | null>(null);
   const [runbookMatch, setRunbookMatch] =
     useState<IncidentRunbookMatch | null>(null);
+  const [workflow, setWorkflow] = useState<IncidentWorkflow | null>(null);
   const [postmortem, setPostmortem] = useState<IncidentPostmortem | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isCoaching, setIsCoaching] = useState(false);
   const [isRetrievingRunbook, setIsRetrievingRunbook] = useState(false);
+  const [isBuildingWorkflow, setIsBuildingWorkflow] = useState(false);
   const [isGeneratingPostmortem, setIsGeneratingPostmortem] = useState(false);
   const [isResolving, setIsResolving] = useState(false);
   const [error, setError] = useState<string | null>(initialError);
@@ -226,6 +230,29 @@ export function Dashboard({
       );
     } finally {
       setIsRetrievingRunbook(false);
+    }
+  }
+
+  async function handleBuildWorkflow() {
+    if (!selectedIncident) {
+      return;
+    }
+
+    setIsBuildingWorkflow(true);
+    setError(null);
+
+    try {
+      const workflowData = await getIncidentWorkflow(selectedIncident.id);
+
+      setWorkflow(workflowData);
+    } catch (currentError) {
+      setError(
+        currentError instanceof Error
+          ? currentError.message
+          : "Failed to build incident workflow",
+      );
+    } finally {
+      setIsBuildingWorkflow(false);
     }
   }
 
@@ -481,6 +508,7 @@ export function Dashboard({
                             setAnalysis(null);
                             setCoach(null);
                             setRunbookMatch(null);
+                            setWorkflow(null);
                             setPostmortem(null);
                           }}
                           type="button"
@@ -523,7 +551,7 @@ export function Dashboard({
             <section className="rounded-md border border-slate-200 bg-white shadow-sm">
               <div className="border-b border-slate-200 px-4 py-3">
                 <h2 className="text-sm font-semibold">Selected incident</h2>
-                <div className="mt-3 grid gap-2 sm:grid-cols-5">
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
                   <button
                     className="h-9 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={!selectedIncident || isAnalyzing}
@@ -547,6 +575,14 @@ export function Dashboard({
                     type="button"
                   >
                     {isRetrievingRunbook ? "Finding..." : "Runbook"}
+                  </button>
+                  <button
+                    className="h-9 rounded-md border border-fuchsia-200 bg-fuchsia-50 px-3 text-xs font-medium text-fuchsia-700 hover:bg-fuchsia-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={!selectedIncident || isBuildingWorkflow}
+                    onClick={handleBuildWorkflow}
+                    type="button"
+                  >
+                    {isBuildingWorkflow ? "Planning..." : "Workflow"}
                   </button>
                   <button
                     className="h-9 rounded-md border border-cyan-200 bg-cyan-50 px-3 text-xs font-medium text-cyan-700 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
@@ -663,6 +699,82 @@ export function Dashboard({
                   ) : (
                     <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
                       Use Runbook to retrieve the best internal response guide.
+                    </div>
+                  )}
+
+                  {workflow ? (
+                    <div className="space-y-3 rounded-md border border-fuchsia-200 bg-fuchsia-50 p-3 text-sm">
+                      <div>
+                        <p className="text-xs uppercase text-fuchsia-600">
+                          Multi-agent workflow
+                        </p>
+                        <p className="mt-1 font-medium text-fuchsia-950">
+                          {workflow.workflow_name}
+                        </p>
+                        <p className="mt-1 text-fuchsia-900">
+                          {workflow.summary}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs uppercase text-fuchsia-600">
+                          Commander brief
+                        </p>
+                        <p className="mt-1 text-fuchsia-900">
+                          {workflow.incident_commander_brief}
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        {workflow.agents.map((agent) => (
+                          <div
+                            className="rounded-md border border-fuchsia-200 bg-white p-3"
+                            key={agent.agent}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="font-medium text-fuchsia-950">
+                                  {agent.agent}
+                                </p>
+                                <p className="mt-1 text-xs text-fuchsia-700">
+                                  {agent.role}
+                                </p>
+                              </div>
+                              <span className="rounded-full border border-fuchsia-200 bg-fuchsia-50 px-2 py-1 text-xs text-fuchsia-700">
+                                {agent.status}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-fuchsia-900">
+                              {agent.goal}
+                            </p>
+                            <ul className="mt-2 list-disc space-y-1 pl-4 text-fuchsia-900">
+                              {agent.tasks.map((task) => (
+                                <li key={task}>{task}</li>
+                              ))}
+                            </ul>
+                            <p className="mt-2 text-xs text-fuchsia-700">
+                              Handoff: {agent.handoff_to} -{" "}
+                              {agent.expected_output}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div>
+                        <p className="text-xs uppercase text-fuchsia-600">
+                          Ready to resolve
+                        </p>
+                        <ul className="mt-2 list-disc space-y-2 pl-4 text-fuchsia-900">
+                          {workflow.ready_to_resolve_checks.map((check) => (
+                            <li key={check}>{check}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                      Use Workflow to assign AI-style agents, handoffs, and
+                      recovery checks.
                     </div>
                   )}
 

@@ -17,6 +17,7 @@ from app.schemas.incident import IncidentPostmortemResponse
 from app.schemas.incident import IncidentRunbookMatchResponse
 from app.schemas.incident import IncidentResponse
 from app.schemas.incident import IncidentStatusUpdate
+from app.schemas.incident import IncidentWorkflowResponse
 from app.schemas.incident import RunbookResponse
 from app.schemas.incident import ServiceHealthResponse
 
@@ -28,6 +29,7 @@ from app.services.incident_events import publish_incident_created
 from app.services.incident_events import publish_incident_updated
 from app.services.incident_events import read_incident_events
 from app.services.incident_generator import generate_incident
+from app.services.incident_workflow import build_incident_workflow
 from app.services.runbook_retrieval import list_runbooks
 from app.services.runbook_retrieval import retrieve_runbook_for_incident
 from app.services.service_health import summarize_service_health
@@ -182,6 +184,20 @@ async def get_incident_coach(incident_id: int):
         raise HTTPException(status_code=404, detail="Incident not found")
 
     return coach_incident(incident)
+
+
+@router.get("/{incident_id}/workflow", response_model=IncidentWorkflowResponse)
+async def get_incident_workflow(incident_id: int):
+    db: Session = SessionLocal()
+
+    incident = db.query(Incident).filter(Incident.id == incident_id).first()
+
+    db.close()
+
+    if incident is None:
+        raise HTTPException(status_code=404, detail="Incident not found")
+
+    return build_incident_workflow(incident)
 
 
 @router.get("/{incident_id}/postmortem", response_model=IncidentPostmortemResponse)

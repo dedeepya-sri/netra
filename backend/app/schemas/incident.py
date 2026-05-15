@@ -69,6 +69,27 @@ class IncidentRunbookMatchResponse(BaseModel):
     suggested_order: list[str]
 
 
+class AgentTaskResponse(BaseModel):
+    agent: str
+    role: str
+    goal: str
+    tasks: list[str]
+    handoff_to: str
+    expected_output: str
+    status: str
+
+
+class IncidentWorkflowResponse(BaseModel):
+    incident_id: int
+    workflow_name: str
+    priority: str
+    summary: str
+    agents: list[AgentTaskResponse]
+    timeline: list[str]
+    ready_to_resolve_checks: list[str]
+    incident_commander_brief: str
+
+
 class IncidentAnalysisResponse(BaseModel):
     incident_id: int
     summary: str

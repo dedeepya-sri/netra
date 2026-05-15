@@ -82,6 +82,27 @@ export type IncidentRunbookMatch = {
   suggested_order: string[];
 };
 
+export type AgentTask = {
+  agent: string;
+  role: string;
+  goal: string;
+  tasks: string[];
+  handoff_to: string;
+  expected_output: string;
+  status: string;
+};
+
+export type IncidentWorkflow = {
+  incident_id: number;
+  workflow_name: string;
+  priority: string;
+  summary: string;
+  agents: AgentTask[];
+  timeline: string[];
+  ready_to_resolve_checks: string[];
+  incident_commander_brief: string;
+};
+
 export async function getBackendHealth() {
   const response = await fetch(`${BACKEND_URL}/health`, {
     cache: "no-store",
@@ -190,6 +211,23 @@ export async function getIncidentRunbook(
 
   if (!response.ok) {
     throw new Error("Failed to fetch incident runbook");
+  }
+
+  return response.json();
+}
+
+export async function getIncidentWorkflow(
+  incidentId: number,
+): Promise<IncidentWorkflow> {
+  const response = await fetch(
+    `${BACKEND_URL}/incidents/${incidentId}/workflow`,
+    {
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch incident workflow");
   }
 
   return response.json();
