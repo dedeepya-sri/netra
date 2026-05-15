@@ -22,7 +22,8 @@ async def create_incident(payload: IncidentCreate):
     incident = Incident(
         title=payload.title,
         severity=payload.severity,
-        status=payload.status
+        status=payload.status,
+        logs=payload.logs
     )
 
     db.add(incident)
@@ -54,7 +55,8 @@ async def generate_synthetic_incident():
     incident = Incident(
         title=generated["title"],
         severity=generated["severity"],
-        status=generated["status"]
+        status=generated["status"],
+        logs=generated["logs"]
     )
 
     db.add(incident)

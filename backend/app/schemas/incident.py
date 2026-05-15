@@ -7,6 +7,7 @@ class IncidentCreate(BaseModel):
     title: str
     severity: str
     status: str
+    logs: str
 
 
 class IncidentResponse(BaseModel):
@@ -14,6 +15,7 @@ class IncidentResponse(BaseModel):
     title: str
     severity: str
     status: str
+    logs: str
     created_at: datetime
 
     class Config:
