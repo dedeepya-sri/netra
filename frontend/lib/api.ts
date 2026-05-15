@@ -20,6 +20,15 @@ export type IncidentEvent = {
   created_at: string;
 };
 
+export type IncidentAnalysis = {
+  incident_id: number;
+  summary: string;
+  probable_cause: string;
+  impact: string;
+  signals: string[];
+  recommended_actions: string[];
+};
+
 export async function getBackendHealth() {
   const response = await fetch(`${BACKEND_URL}/health`, {
     cache: "no-store",
@@ -68,6 +77,20 @@ export async function getRecentIncidentEvents(
 
   if (!response.ok) {
     throw new Error("Failed to fetch incident events");
+  }
+
+  return response.json();
+}
+
+export async function analyzeIncident(
+  incidentId: number,
+): Promise<IncidentAnalysis> {
+  const response = await fetch(`${BACKEND_URL}/incidents/${incidentId}/analysis`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to analyze incident");
   }
 
   return response.json();

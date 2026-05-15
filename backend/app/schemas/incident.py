@@ -30,3 +30,12 @@ class IncidentEventResponse(BaseModel):
     severity: str
     status: str
     created_at: datetime
+
+
+class IncidentAnalysisResponse(BaseModel):
+    incident_id: int
+    summary: str
+    probable_cause: str
+    impact: str
+    signals: list[str]
+    recommended_actions: list[str]

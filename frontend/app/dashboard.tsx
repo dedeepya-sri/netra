@@ -4,11 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   INCIDENT_EVENTS_WS_URL,
+  analyzeIncident,
   generateIncident,
   getBackendHealth,
   getIncidents,
   getRecentIncidentEvents,
   type Incident,
+  type IncidentAnalysis,
   type IncidentEvent,
 } from "@/lib/api";
 
@@ -49,12 +51,25 @@ export function Dashboard({
   const [health, setHealth] = useState(initialHealth);
   const [incidents, setIncidents] = useState(initialIncidents);
   const [events, setEvents] = useState(initialEvents);
+  const [selectedIncidentId, setSelectedIncidentId] = useState(
+    initialIncidents[0]?.id ?? null,
+  );
+  const [analysis, setAnalysis] = useState<IncidentAnalysis | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(initialError);
 
   const openIncidentCount = useMemo(
     () => incidents.filter((incident) => incident.status === "open").length,
     [incidents],
+  );
+
+  const selectedIncident = useMemo(
+    () =>
+      incidents.find((incident) => incident.id === selectedIncidentId) ??
+      incidents[0] ??
+      null,
+    [incidents, selectedIncidentId],
   );
 
   const refreshDashboard = useCallback(async () => {
@@ -84,6 +99,29 @@ export function Dashboard({
       );
     } finally {
       setIsGenerating(false);
+    }
+  }
+
+  async function handleAnalyzeIncident() {
+    if (!selectedIncident) {
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setError(null);
+
+    try {
+      const analysisData = await analyzeIncident(selectedIncident.id);
+
+      setAnalysis(analysisData);
+    } catch (currentError) {
+      setError(
+        currentError instanceof Error
+          ? currentError.message
+          : "Failed to analyze incident",
+      );
+    } finally {
+      setIsAnalyzing(false);
     }
   }
 
@@ -157,7 +195,7 @@ export function Dashboard({
           </div>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
           <div className="overflow-hidden border border-zinc-800 bg-zinc-950">
             <div className="border-b border-zinc-800 px-4 py-3">
               <h2 className="text-sm font-semibold">Incidents</h2>
@@ -176,9 +214,25 @@ export function Dashboard({
                 </thead>
                 <tbody>
                   {incidents.map((incident) => (
-                    <tr className="border-t border-zinc-800" key={incident.id}>
+                    <tr
+                      className={`border-t border-zinc-800 ${
+                        selectedIncident?.id === incident.id
+                          ? "bg-zinc-900"
+                          : ""
+                      }`}
+                      key={incident.id}
+                    >
                       <td className="px-4 py-3 text-zinc-500">
-                        {incident.id}
+                        <button
+                          className="text-cyan-300 hover:text-cyan-200"
+                          onClick={() => {
+                            setSelectedIncidentId(incident.id);
+                            setAnalysis(null);
+                          }}
+                          type="button"
+                        >
+                          {incident.id}
+                        </button>
                       </td>
                       <td className="px-4 py-3 font-medium">
                         {incident.title}
@@ -206,7 +260,72 @@ export function Dashboard({
             </div>
           </div>
 
-          <aside className="border border-zinc-800 bg-zinc-950">
+          <aside className="flex flex-col gap-6">
+            <section className="border border-zinc-800 bg-zinc-950">
+              <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+                <h2 className="text-sm font-semibold">Incident analysis</h2>
+                <button
+                  className="h-8 border border-zinc-700 bg-zinc-900 px-3 text-xs text-zinc-100 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={!selectedIncident || isAnalyzing}
+                  onClick={handleAnalyzeIncident}
+                  type="button"
+                >
+                  {isAnalyzing ? "Analyzing..." : "Analyze"}
+                </button>
+              </div>
+
+              {selectedIncident ? (
+                <div className="space-y-4 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium">
+                      #{selectedIncident.id} {selectedIncident.title}
+                    </p>
+                    <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap border border-zinc-800 bg-black p-3 text-xs leading-5 text-zinc-400">
+                      {selectedIncident.logs}
+                    </pre>
+                  </div>
+
+                  {analysis ? (
+                    <div className="space-y-3 text-sm">
+                      <div>
+                        <p className="text-xs uppercase text-zinc-500">
+                          Summary
+                        </p>
+                        <p className="mt-1 text-zinc-300">
+                          {analysis.summary}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs uppercase text-zinc-500">
+                          Probable cause
+                        </p>
+                        <p className="mt-1 text-zinc-300">
+                          {analysis.probable_cause}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs uppercase text-zinc-500">
+                          Recommended actions
+                        </p>
+                        <ul className="mt-2 space-y-2 text-zinc-300">
+                          {analysis.recommended_actions.map((action) => (
+                            <li key={action}>{action}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="px-4 py-3 text-sm text-zinc-500">
+                  No incident selected.
+                </div>
+              )}
+            </section>
+
+            <section className="border border-zinc-800 bg-zinc-950">
             <div className="border-b border-zinc-800 px-4 py-3">
               <h2 className="text-sm font-semibold">Recent events</h2>
             </div>
@@ -223,6 +342,7 @@ export function Dashboard({
                 </div>
               ))}
             </div>
+            </section>
           </aside>
         </section>
       </div>
