@@ -21,7 +21,7 @@ const SHOULD_FALL_BACK_TO_PUBLIC_BACKEND =
   USE_INTERNAL_BACKEND &&
   INTERNAL_BACKEND_URL !== PUBLIC_BACKEND_URL;
 
-const FETCH_TIMEOUT_MS = 5000;
+const FETCH_TIMEOUT_MS = 30000;
 
 function normalizeBackendUrl(url: string) {
   return url.replace(/\/+$/, "");
