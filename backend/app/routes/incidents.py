@@ -18,6 +18,7 @@ from app.schemas.incident import IncidentRunbookMatchResponse
 from app.schemas.incident import IncidentResponse
 from app.schemas.incident import IncidentStatusUpdate
 from app.schemas.incident import IncidentWorkflowResponse
+from app.schemas.incident import ObservabilitySummaryResponse
 from app.schemas.incident import RunbookResponse
 from app.schemas.incident import ServiceHealthResponse
 
@@ -30,6 +31,7 @@ from app.services.incident_events import publish_incident_updated
 from app.services.incident_events import read_incident_events
 from app.services.incident_generator import generate_incident
 from app.services.incident_workflow import build_incident_workflow
+from app.services.observability import summarize_observability
 from app.services.runbook_retrieval import list_runbooks
 from app.services.runbook_retrieval import retrieve_runbook_for_incident
 from app.services.service_health import summarize_service_health
@@ -93,6 +95,17 @@ async def list_service_health():
 @router.get("/runbooks", response_model=list[RunbookResponse])
 async def get_runbooks():
     return list_runbooks()
+
+
+@router.get("/observability", response_model=ObservabilitySummaryResponse)
+async def get_observability_summary():
+    db: Session = SessionLocal()
+
+    incidents = db.query(Incident).all()
+
+    db.close()
+
+    return summarize_observability(incidents)
 
 
 @router.patch("/{incident_id}/status", response_model=IncidentResponse)

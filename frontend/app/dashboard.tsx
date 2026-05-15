@@ -12,6 +12,7 @@ import {
   getIncidentRunbook,
   getIncidentWorkflow,
   getIncidents,
+  getObservabilitySummary,
   getRecentIncidentEvents,
   getRunbooks,
   getServiceHealth,
@@ -23,6 +24,7 @@ import {
   type IncidentPostmortem,
   type IncidentRunbookMatch,
   type IncidentWorkflow,
+  type ObservabilitySummary,
   type Runbook,
   type ServiceHealth,
 } from "@/lib/api";
@@ -37,6 +39,7 @@ type DashboardProps = {
   initialEvents: IncidentEvent[];
   initialServiceHealth: ServiceHealth[];
   initialRunbooks: Runbook[];
+  initialObservability: ObservabilitySummary | null;
   initialError: string | null;
 };
 
@@ -72,12 +75,17 @@ function formatMetric(value: number | undefined, suffix: string) {
   return `${value}${suffix}`;
 }
 
+function countValue(counts: Record<string, number>, key: string) {
+  return counts[key] ?? 0;
+}
+
 export function Dashboard({
   initialHealth,
   initialIncidents,
   initialEvents,
   initialServiceHealth,
   initialRunbooks,
+  initialObservability,
   initialError,
 }: DashboardProps) {
   const [health, setHealth] = useState(initialHealth);
@@ -85,6 +93,7 @@ export function Dashboard({
   const [events, setEvents] = useState(initialEvents);
   const [serviceHealth, setServiceHealth] = useState(initialServiceHealth);
   const [runbooks, setRunbooks] = useState(initialRunbooks);
+  const [observability, setObservability] = useState(initialObservability);
   const [selectedIncidentId, setSelectedIncidentId] = useState(
     initialIncidents[0]?.id ?? null,
   );
@@ -130,6 +139,7 @@ export function Dashboard({
       eventData,
       serviceHealthData,
       runbookData,
+      observabilityData,
     ] =
       await Promise.all([
       getBackendHealth(),
@@ -137,6 +147,7 @@ export function Dashboard({
       getRecentIncidentEvents(5),
       getServiceHealth(),
       getRunbooks(),
+      getObservabilitySummary(),
     ]);
 
     setHealth(healthData);
@@ -144,6 +155,7 @@ export function Dashboard({
     setEvents(eventData);
     setServiceHealth(serviceHealthData);
     setRunbooks(runbookData);
+    setObservability(observabilityData);
   }, []);
 
   async function handleGenerateIncident() {
@@ -376,6 +388,156 @@ export function Dashboard({
               {investigatingIncidentCount}
             </p>
           </div>
+        </section>
+
+        <section className="rounded-md border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 px-4 py-3">
+            <h2 className="text-sm font-semibold">Observability</h2>
+          </div>
+
+          {observability ? (
+            <div className="grid gap-4 p-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs uppercase text-slate-500">
+                    Total incidents
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold">
+                    {observability.total_incidents}
+                  </p>
+                </div>
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs uppercase text-slate-500">
+                    Active / resolved
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold">
+                    {observability.active_incidents} /{" "}
+                    {observability.resolved_incidents}
+                  </p>
+                </div>
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs uppercase text-slate-500">
+                    Estimated MTTR
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold">
+                    {observability.mttr_minutes_estimate}m
+                  </p>
+                </div>
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs uppercase text-slate-500">
+                    Avg telemetry
+                  </p>
+                  <p className="mt-2 text-sm text-slate-700">
+                    {observability.average_metrics.latency_ms}ms latency,{" "}
+                    {observability.average_metrics.error_rate_percent}% errors
+                  </p>
+                  <p className="mt-1 text-sm text-slate-700">
+                    {observability.average_metrics.cpu_percent}% CPU,{" "}
+                    {observability.average_metrics.memory_percent}% memory
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-3">
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-sm font-medium">Severity mix</p>
+                  <div className="mt-3 space-y-3">
+                    {["critical", "high", "medium", "low"].map((severity) => {
+                      const value = countValue(
+                        observability.severity_counts,
+                        severity,
+                      );
+                      const width =
+                        observability.total_incidents > 0
+                          ? (value / observability.total_incidents) * 100
+                          : 0;
+
+                      return (
+                        <div key={severity}>
+                          <div className="flex justify-between text-xs text-slate-600">
+                            <span>{severity}</span>
+                            <span>{value}</span>
+                          </div>
+                          <div className="mt-1 h-2 rounded-full bg-white">
+                            <div
+                              className="h-2 rounded-full bg-rose-400"
+                              style={{ width: `${width}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-sm font-medium">Status mix</p>
+                  <div className="mt-3 space-y-3">
+                    {["open", "investigating", "resolved"].map((status) => {
+                      const value = countValue(
+                        observability.status_counts,
+                        status,
+                      );
+                      const width =
+                        observability.total_incidents > 0
+                          ? (value / observability.total_incidents) * 100
+                          : 0;
+
+                      return (
+                        <div key={status}>
+                          <div className="flex justify-between text-xs text-slate-600">
+                            <span>{status}</span>
+                            <span>{value}</span>
+                          </div>
+                          <div className="mt-1 h-2 rounded-full bg-white">
+                            <div
+                              className="h-2 rounded-full bg-cyan-400"
+                              style={{ width: `${width}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-sm font-medium">Service load</p>
+                  <div className="mt-3 space-y-3">
+                    {observability.service_incidents.map((service) => {
+                      const width =
+                        observability.total_incidents > 0
+                          ? (service.incident_count /
+                              observability.total_incidents) *
+                            100
+                          : 0;
+
+                      return (
+                        <div key={service.service}>
+                          <div className="flex justify-between text-xs text-slate-600">
+                            <span>{service.service}</span>
+                            <span>
+                              {service.active_count}/{service.incident_count}
+                            </span>
+                          </div>
+                          <div className="mt-1 h-2 rounded-full bg-white">
+                            <div
+                              className="h-2 rounded-full bg-emerald-400"
+                              style={{ width: `${width}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 text-sm text-slate-500">
+              Observability is unavailable until the backend is running.
+            </div>
+          )}
         </section>
 
         <section className="rounded-md border border-slate-200 bg-white shadow-sm">

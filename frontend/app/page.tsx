@@ -1,6 +1,7 @@
 import {
   getBackendHealth,
   getIncidents,
+  getObservabilitySummary,
   getRecentIncidentEvents,
   getRunbooks,
   getServiceHealth,
@@ -15,12 +16,14 @@ export default async function HomePage() {
     eventsResult,
     serviceHealthResult,
     runbooksResult,
+    observabilityResult,
   ] = await Promise.allSettled([
     getBackendHealth(),
     getIncidents(),
     getRecentIncidentEvents(5),
     getServiceHealth(),
     getRunbooks(),
+    getObservabilitySummary(),
   ]);
 
   const health =
@@ -41,6 +44,11 @@ export default async function HomePage() {
   const runbooks =
     runbooksResult.status === "fulfilled" ? runbooksResult.value : [];
 
+  const observability =
+    observabilityResult.status === "fulfilled"
+      ? observabilityResult.value
+      : null;
+
   const initialError =
     healthResult.status === "rejected"
       ? "Backend is offline. Start the FastAPI service on port 8000."
@@ -52,6 +60,7 @@ export default async function HomePage() {
       initialError={initialError}
       initialHealth={health}
       initialIncidents={incidents}
+      initialObservability={observability}
       initialRunbooks={runbooks}
       initialServiceHealth={serviceHealth}
     />

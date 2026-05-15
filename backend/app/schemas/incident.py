@@ -49,6 +49,30 @@ class ServiceHealthResponse(BaseModel):
     error_rate_percent: float | None
 
 
+class MetricSummaryResponse(BaseModel):
+    latency_ms: float
+    error_rate_percent: float
+    cpu_percent: float
+    memory_percent: float
+
+
+class ServiceIncidentSummaryResponse(BaseModel):
+    service: str
+    incident_count: int
+    active_count: int
+
+
+class ObservabilitySummaryResponse(BaseModel):
+    total_incidents: int
+    active_incidents: int
+    resolved_incidents: int
+    mttr_minutes_estimate: int
+    status_counts: dict[str, int]
+    severity_counts: dict[str, int]
+    average_metrics: MetricSummaryResponse
+    service_incidents: list[ServiceIncidentSummaryResponse]
+
+
 class RunbookResponse(BaseModel):
     id: str
     title: str

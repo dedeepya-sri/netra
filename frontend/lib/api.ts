@@ -103,6 +103,26 @@ export type IncidentWorkflow = {
   incident_commander_brief: string;
 };
 
+export type ObservabilitySummary = {
+  total_incidents: number;
+  active_incidents: number;
+  resolved_incidents: number;
+  mttr_minutes_estimate: number;
+  status_counts: Record<string, number>;
+  severity_counts: Record<string, number>;
+  average_metrics: {
+    latency_ms: number;
+    error_rate_percent: number;
+    cpu_percent: number;
+    memory_percent: number;
+  };
+  service_incidents: {
+    service: string;
+    incident_count: number;
+    active_count: number;
+  }[];
+};
+
 export async function getBackendHealth() {
   const response = await fetch(`${BACKEND_URL}/health`, {
     cache: "no-store",
@@ -194,6 +214,18 @@ export async function getRunbooks(): Promise<Runbook[]> {
 
   if (!response.ok) {
     throw new Error("Failed to fetch runbooks");
+  }
+
+  return response.json();
+}
+
+export async function getObservabilitySummary(): Promise<ObservabilitySummary> {
+  const response = await fetch(`${BACKEND_URL}/incidents/observability`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch observability summary");
   }
 
   return response.json();
