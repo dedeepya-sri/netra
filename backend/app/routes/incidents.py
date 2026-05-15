@@ -7,6 +7,7 @@ from app.models.incident import Incident
 from app.schemas.incident import IncidentCreate
 from app.schemas.incident import IncidentResponse
 
+from app.services.incident_events import publish_incident_created
 from app.services.incident_generator import generate_incident
 
 router = APIRouter(
@@ -29,6 +30,8 @@ async def create_incident(payload: IncidentCreate):
     db.add(incident)
     db.commit()
     db.refresh(incident)
+
+    publish_incident_created(incident)
 
     db.close()
 
@@ -62,6 +65,8 @@ async def generate_synthetic_incident():
     db.add(incident)
     db.commit()
     db.refresh(incident)
+
+    publish_incident_created(incident)
 
     db.close()
 
