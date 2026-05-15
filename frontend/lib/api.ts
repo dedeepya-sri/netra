@@ -17,6 +17,8 @@ const SHOULD_FALL_BACK_TO_PUBLIC_BACKEND =
   USE_INTERNAL_BACKEND &&
   INTERNAL_BACKEND_URL !== PUBLIC_BACKEND_URL;
 
+const FETCH_TIMEOUT_MS = 5000;
+
 export const INCIDENT_EVENTS_WS_URL =
   `${PUBLIC_BACKEND_URL.replace(/^http/, "ws")}/incidents/ws`;
 
@@ -154,12 +156,80 @@ export type IncidentSimulationRequest = {
   count: number;
 };
 
+const EMPTY_INCIDENT_ANALYSIS: IncidentAnalysis = {
+  incident_id: 0,
+  summary: "Analysis is unavailable while the backend is offline.",
+  probable_cause: "Unknown",
+  impact: "Unknown",
+  risk_score: 0,
+  priority: "unknown",
+  signals: [],
+  recommended_actions: [],
+};
+
+const EMPTY_RUNBOOK: Runbook = {
+  id: "unavailable",
+  title: "Runbook unavailable",
+  service: "unknown",
+  summary: "Runbook matching is unavailable while the backend is offline.",
+  symptoms: [],
+  checks: [],
+  mitigations: [],
+  escalation: "Backend unavailable",
+};
+
+const EMPTY_INCIDENT_RUNBOOK: IncidentRunbookMatch = {
+  incident_id: 0,
+  query: "",
+  matched_runbook: EMPTY_RUNBOOK,
+  confidence: 0,
+  matched_terms: [],
+  suggested_order: [],
+};
+
+const EMPTY_INCIDENT_WORKFLOW: IncidentWorkflow = {
+  incident_id: 0,
+  workflow_name: "Workflow unavailable",
+  priority: "unknown",
+  summary: "Workflow generation is unavailable while the backend is offline.",
+  agents: [],
+  timeline: [],
+  ready_to_resolve_checks: [],
+  incident_commander_brief: "",
+};
+
+const EMPTY_INCIDENT_POSTMORTEM: IncidentPostmortem = {
+  incident_id: 0,
+  title: "Postmortem unavailable",
+  executive_summary: "Postmortem generation is unavailable while the backend is offline.",
+  customer_impact: "Unknown",
+  root_cause: "Unknown",
+  detection: "Unknown",
+  resolution: "Unknown",
+  timeline: [],
+  contributing_factors: [],
+  prevention_items: [],
+  lessons_learned: [],
+  owners: [],
+  follow_up_actions: [],
+};
+
+const EMPTY_INCIDENT_COACH: IncidentCoach = {
+  incident_id: 0,
+  plain_summary: "Responder coaching is unavailable while the backend is offline.",
+  why_it_matters: "",
+  first_steps: [],
+  escalation_message: "",
+  questions_to_ask: [],
+};
+
 async function fetchBackend(
   path: string,
   init?: RequestInit,
 ) {
   const mergedInit: RequestInit = {
     cache: "no-store",
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     ...init,
   };
 
@@ -168,18 +238,8 @@ async function fetchBackend(
 
     return await fetch(url, mergedInit);
   } catch (error) {
-    console.error(
-      `Backend fetch failed for ${path}`,
-      error,
-    );
-
     if (!SHOULD_FALL_BACK_TO_PUBLIC_BACKEND) {
-      return new Response(JSON.stringify([]), {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      throw error;
     }
 
     try {
@@ -188,17 +248,7 @@ async function fetchBackend(
         mergedInit,
       );
     } catch (fallbackError) {
-      console.error(
-        `Fallback backend fetch failed for ${path}`,
-        fallbackError,
-      );
-
-      return new Response(JSON.stringify([]), {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      throw fallbackError;
     }
   }
 }
@@ -212,11 +262,8 @@ async function backendJson<T>(
     const response = await fetchBackend(path, init);
 
     return safeJson(response, fallback);
-  } catch (error) {
-    console.error(
-      `Backend JSON fallback used for ${path}`,
-      error,
-    );
+  } catch {
+    console.warn(`Using backend fallback for ${path}`);
 
     return fallback;
   }
@@ -336,7 +383,10 @@ export async function getIncidentRunbook(
 ): Promise<IncidentRunbookMatch> {
   return backendJson(
     `/incidents/${incidentId}/runbook`,
-    {} as IncidentRunbookMatch,
+    {
+      ...EMPTY_INCIDENT_RUNBOOK,
+      incident_id: incidentId,
+    },
   );
 }
 
@@ -345,7 +395,10 @@ export async function getIncidentWorkflow(
 ): Promise<IncidentWorkflow> {
   return backendJson(
     `/incidents/${incidentId}/workflow`,
-    {} as IncidentWorkflow,
+    {
+      ...EMPTY_INCIDENT_WORKFLOW,
+      incident_id: incidentId,
+    },
   );
 }
 
@@ -354,7 +407,10 @@ export async function analyzeIncident(
 ): Promise<IncidentAnalysis> {
   return backendJson(
     `/incidents/${incidentId}/analysis`,
-    {} as IncidentAnalysis,
+    {
+      ...EMPTY_INCIDENT_ANALYSIS,
+      incident_id: incidentId,
+    },
   );
 }
 
@@ -363,7 +419,10 @@ export async function generatePostmortem(
 ): Promise<IncidentPostmortem> {
   return backendJson(
     `/incidents/${incidentId}/postmortem`,
-    {} as IncidentPostmortem,
+    {
+      ...EMPTY_INCIDENT_POSTMORTEM,
+      incident_id: incidentId,
+    },
   );
 }
 
@@ -372,6 +431,9 @@ export async function coachIncident(
 ): Promise<IncidentCoach> {
   return backendJson(
     `/incidents/${incidentId}/coach`,
-    {} as IncidentCoach,
+    {
+      ...EMPTY_INCIDENT_COACH,
+      incident_id: incidentId,
+    },
   );
 }
