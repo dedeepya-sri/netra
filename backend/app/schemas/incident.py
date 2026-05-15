@@ -16,6 +16,13 @@ class IncidentStatusUpdate(BaseModel):
     status: str
 
 
+class IncidentSimulationRequest(BaseModel):
+    service: str | None = None
+    scenario: str | None = None
+    severity: str | None = None
+    count: int = Field(default=3, ge=1, le=10)
+
+
 class IncidentResponse(BaseModel):
     id: int
     title: str

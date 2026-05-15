@@ -16,6 +16,7 @@ import {
   getRecentIncidentEvents,
   getRunbooks,
   getServiceHealth,
+  simulateIncidents,
   updateIncidentStatus,
   type Incident,
   type IncidentAnalysis,
@@ -56,6 +57,25 @@ const healthStyles: Record<string, string> = {
   degraded: "bg-amber-50 text-amber-700 border-amber-200",
   critical: "bg-rose-50 text-rose-700 border-rose-200",
 };
+
+const simulationServices = [
+  "payment-service",
+  "auth-service",
+  "notification-service",
+  "gateway-service",
+  "search-service",
+];
+
+const simulationScenarios = [
+  "latency spike",
+  "database outage",
+  "memory leak",
+  "high error rate",
+  "deployment failure",
+  "redis pressure",
+];
+
+const simulationSeverities = ["low", "medium", "high", "critical"];
 
 const dateTimeFormatter = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
@@ -104,6 +124,7 @@ export function Dashboard({
   const [workflow, setWorkflow] = useState<IncidentWorkflow | null>(null);
   const [postmortem, setPostmortem] = useState<IncidentPostmortem | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isCoaching, setIsCoaching] = useState(false);
   const [isRetrievingRunbook, setIsRetrievingRunbook] = useState(false);
@@ -111,6 +132,14 @@ export function Dashboard({
   const [isGeneratingPostmortem, setIsGeneratingPostmortem] = useState(false);
   const [isResolving, setIsResolving] = useState(false);
   const [error, setError] = useState<string | null>(initialError);
+  const [simulationService, setSimulationService] = useState(
+    simulationServices[0],
+  );
+  const [simulationScenario, setSimulationScenario] = useState(
+    simulationScenarios[0],
+  );
+  const [simulationSeverity, setSimulationSeverity] = useState("high");
+  const [simulationCount, setSimulationCount] = useState(3);
 
   const openIncidentCount = useMemo(
     () => incidents.filter((incident) => incident.status === "open").length,
@@ -173,6 +202,29 @@ export function Dashboard({
       );
     } finally {
       setIsGenerating(false);
+    }
+  }
+
+  async function handleSimulateIncidents() {
+    setIsSimulating(true);
+    setError(null);
+
+    try {
+      await simulateIncidents({
+        count: simulationCount,
+        scenario: simulationScenario,
+        service: simulationService,
+        severity: simulationSeverity,
+      });
+      await refreshDashboard();
+    } catch (currentError) {
+      setError(
+        currentError instanceof Error
+          ? currentError.message
+          : "Failed to simulate incidents",
+      );
+    } finally {
+      setIsSimulating(false);
     }
   }
 
@@ -387,6 +439,84 @@ export function Dashboard({
             <p className="mt-2 text-2xl font-semibold">
               {investigatingIncidentCount}
             </p>
+          </div>
+        </section>
+
+        <section className="rounded-md border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 px-4 py-3">
+            <h2 className="text-sm font-semibold">Simulation controls</h2>
+          </div>
+
+          <div className="grid gap-3 p-4 md:grid-cols-[1fr_1fr_1fr_120px_auto] md:items-end">
+            <label className="text-sm">
+              <span className="text-xs uppercase text-slate-500">Service</span>
+              <select
+                className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900"
+                onChange={(event) => setSimulationService(event.target.value)}
+                value={simulationService}
+              >
+                {simulationServices.map((service) => (
+                  <option key={service} value={service}>
+                    {service}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-sm">
+              <span className="text-xs uppercase text-slate-500">Scenario</span>
+              <select
+                className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900"
+                onChange={(event) => setSimulationScenario(event.target.value)}
+                value={simulationScenario}
+              >
+                {simulationScenarios.map((scenario) => (
+                  <option key={scenario} value={scenario}>
+                    {scenario}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-sm">
+              <span className="text-xs uppercase text-slate-500">Severity</span>
+              <select
+                className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900"
+                onChange={(event) => setSimulationSeverity(event.target.value)}
+                value={simulationSeverity}
+              >
+                {simulationSeverities.map((severity) => (
+                  <option key={severity} value={severity}>
+                    {severity}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-sm">
+              <span className="text-xs uppercase text-slate-500">Count</span>
+              <input
+                className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900"
+                max={10}
+                min={1}
+                onChange={(event) =>
+                  setSimulationCount(
+                    Math.min(Math.max(Number(event.target.value), 1), 10),
+                  )
+                }
+                type="number"
+                value={simulationCount}
+              />
+            </label>
+
+            <button
+              className="h-10 rounded-md bg-slate-950 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isSimulating}
+              onClick={handleSimulateIncidents}
+              type="button"
+            >
+              {isSimulating ? "Simulating..." : "Run simulation"}
+            </button>
           </div>
         </section>
 

@@ -123,6 +123,13 @@ export type ObservabilitySummary = {
   }[];
 };
 
+export type IncidentSimulationRequest = {
+  service?: string;
+  scenario?: string;
+  severity?: string;
+  count: number;
+};
+
 export async function getBackendHealth() {
   const response = await fetch(`${BACKEND_URL}/health`, {
     cache: "no-store",
@@ -154,6 +161,24 @@ export async function generateIncident(): Promise<Incident> {
 
   if (!response.ok) {
     throw new Error("Failed to generate incident");
+  }
+
+  return response.json();
+}
+
+export async function simulateIncidents(
+  payload: IncidentSimulationRequest,
+): Promise<Incident[]> {
+  const response = await fetch(`${BACKEND_URL}/incidents/simulate`, {
+    body: JSON.stringify(payload),
+    headers: {
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to simulate incidents");
   }
 
   return response.json();

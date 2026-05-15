@@ -16,6 +16,7 @@ from app.schemas.incident import IncidentEventResponse
 from app.schemas.incident import IncidentPostmortemResponse
 from app.schemas.incident import IncidentRunbookMatchResponse
 from app.schemas.incident import IncidentResponse
+from app.schemas.incident import IncidentSimulationRequest
 from app.schemas.incident import IncidentStatusUpdate
 from app.schemas.incident import IncidentWorkflowResponse
 from app.schemas.incident import ObservabilitySummaryResponse
@@ -250,3 +251,35 @@ async def generate_synthetic_incident():
     db.close()
 
     return incident
+
+
+@router.post("/simulate", response_model=list[IncidentResponse])
+async def simulate_incidents(payload: IncidentSimulationRequest):
+    db: Session = SessionLocal()
+    incidents = []
+
+    for _ in range(payload.count):
+        generated = generate_incident(
+            service=payload.service,
+            scenario=payload.scenario,
+            severity=payload.severity,
+        )
+
+        incident = Incident(
+            title=generated["title"],
+            severity=generated["severity"],
+            status=generated["status"],
+            logs=generated["logs"],
+            metrics=generated["metrics"]
+        )
+
+        db.add(incident)
+        db.commit()
+        db.refresh(incident)
+
+        publish_incident_created(incident)
+        incidents.append(incident)
+
+    db.close()
+
+    return incidents
