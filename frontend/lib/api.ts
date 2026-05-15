@@ -162,14 +162,45 @@ export type IncidentSimulationRequest = {
 async function fetchBackend(path: string, init?: RequestInit) {
   const url = `${BACKEND_URL}${path}`;
 
+  const mergedInit: RequestInit = {
+    cache: "no-store",
+    ...init,
+  };
+
   try {
-    return await fetch(url, init);
+    const response = await fetch(url, mergedInit);
+
+    return response;
   } catch (error) {
+    console.error(`Backend fetch failed for ${path}`, error);
+
     if (!SHOULD_FALL_BACK_TO_PUBLIC_BACKEND) {
-      throw error;
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
     }
 
-    return fetch(`${PUBLIC_BACKEND_URL}${path}`, init);
+    try {
+      return await fetch(
+        `${PUBLIC_BACKEND_URL}${path}`,
+        mergedInit,
+      );
+    } catch (fallbackError) {
+      console.error(
+        `Fallback backend fetch failed for ${path}`,
+        fallbackError,
+      );
+
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    }
   }
 }
 
