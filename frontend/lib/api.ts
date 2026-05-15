@@ -62,6 +62,26 @@ export type ServiceHealth = {
   error_rate_percent: number | null;
 };
 
+export type Runbook = {
+  id: string;
+  title: string;
+  service: string;
+  summary: string;
+  symptoms: string[];
+  checks: string[];
+  mitigations: string[];
+  escalation: string;
+};
+
+export type IncidentRunbookMatch = {
+  incident_id: number;
+  query: string;
+  matched_runbook: Runbook;
+  confidence: number;
+  matched_terms: string[];
+  suggested_order: string[];
+};
+
 export async function getBackendHealth() {
   const response = await fetch(`${BACKEND_URL}/health`, {
     cache: "no-store",
@@ -141,6 +161,35 @@ export async function getServiceHealth(): Promise<ServiceHealth[]> {
 
   if (!response.ok) {
     throw new Error("Failed to fetch service health");
+  }
+
+  return response.json();
+}
+
+export async function getRunbooks(): Promise<Runbook[]> {
+  const response = await fetch(`${BACKEND_URL}/incidents/runbooks`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch runbooks");
+  }
+
+  return response.json();
+}
+
+export async function getIncidentRunbook(
+  incidentId: number,
+): Promise<IncidentRunbookMatch> {
+  const response = await fetch(
+    `${BACKEND_URL}/incidents/${incidentId}/runbook`,
+    {
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch incident runbook");
   }
 
   return response.json();

@@ -9,8 +9,10 @@ import {
   generateIncident,
   generatePostmortem,
   getBackendHealth,
+  getIncidentRunbook,
   getIncidents,
   getRecentIncidentEvents,
+  getRunbooks,
   getServiceHealth,
   updateIncidentStatus,
   type Incident,
@@ -18,6 +20,8 @@ import {
   type IncidentCoach,
   type IncidentEvent,
   type IncidentPostmortem,
+  type IncidentRunbookMatch,
+  type Runbook,
   type ServiceHealth,
 } from "@/lib/api";
 
@@ -30,6 +34,7 @@ type DashboardProps = {
   initialIncidents: Incident[];
   initialEvents: IncidentEvent[];
   initialServiceHealth: ServiceHealth[];
+  initialRunbooks: Runbook[];
   initialError: string | null;
 };
 
@@ -70,21 +75,26 @@ export function Dashboard({
   initialIncidents,
   initialEvents,
   initialServiceHealth,
+  initialRunbooks,
   initialError,
 }: DashboardProps) {
   const [health, setHealth] = useState(initialHealth);
   const [incidents, setIncidents] = useState(initialIncidents);
   const [events, setEvents] = useState(initialEvents);
   const [serviceHealth, setServiceHealth] = useState(initialServiceHealth);
+  const [runbooks, setRunbooks] = useState(initialRunbooks);
   const [selectedIncidentId, setSelectedIncidentId] = useState(
     initialIncidents[0]?.id ?? null,
   );
   const [analysis, setAnalysis] = useState<IncidentAnalysis | null>(null);
   const [coach, setCoach] = useState<IncidentCoach | null>(null);
+  const [runbookMatch, setRunbookMatch] =
+    useState<IncidentRunbookMatch | null>(null);
   const [postmortem, setPostmortem] = useState<IncidentPostmortem | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isCoaching, setIsCoaching] = useState(false);
+  const [isRetrievingRunbook, setIsRetrievingRunbook] = useState(false);
   const [isGeneratingPostmortem, setIsGeneratingPostmortem] = useState(false);
   const [isResolving, setIsResolving] = useState(false);
   const [error, setError] = useState<string | null>(initialError);
@@ -110,18 +120,26 @@ export function Dashboard({
   );
 
   const refreshDashboard = useCallback(async () => {
-    const [healthData, incidentData, eventData, serviceHealthData] =
+    const [
+      healthData,
+      incidentData,
+      eventData,
+      serviceHealthData,
+      runbookData,
+    ] =
       await Promise.all([
       getBackendHealth(),
       getIncidents(),
       getRecentIncidentEvents(5),
       getServiceHealth(),
+      getRunbooks(),
     ]);
 
     setHealth(healthData);
     setIncidents(incidentData);
     setEvents(eventData);
     setServiceHealth(serviceHealthData);
+    setRunbooks(runbookData);
   }, []);
 
   async function handleGenerateIncident() {
@@ -185,6 +203,29 @@ export function Dashboard({
       );
     } finally {
       setIsCoaching(false);
+    }
+  }
+
+  async function handleRetrieveRunbook() {
+    if (!selectedIncident) {
+      return;
+    }
+
+    setIsRetrievingRunbook(true);
+    setError(null);
+
+    try {
+      const runbookData = await getIncidentRunbook(selectedIncident.id);
+
+      setRunbookMatch(runbookData);
+    } catch (currentError) {
+      setError(
+        currentError instanceof Error
+          ? currentError.message
+          : "Failed to retrieve runbook",
+      );
+    } finally {
+      setIsRetrievingRunbook(false);
     }
   }
 
@@ -377,6 +418,34 @@ export function Dashboard({
           </div>
         </section>
 
+        <section className="rounded-md border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 px-4 py-3">
+            <h2 className="text-sm font-semibold">Runbook library</h2>
+          </div>
+
+          <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-5">
+            {runbooks.map((runbook) => (
+              <div
+                className="rounded-md border border-slate-200 bg-slate-50 p-3"
+                key={runbook.id}
+              >
+                <p className="text-sm font-medium">{runbook.title}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {runbook.service}
+                </p>
+                <p className="mt-3 line-clamp-3 text-xs leading-5 text-slate-600">
+                  {runbook.summary}
+                </p>
+              </div>
+            ))}
+            {runbooks.length === 0 ? (
+              <div className="text-sm text-slate-500">
+                Runbooks are unavailable until the backend is running.
+              </div>
+            ) : null}
+          </div>
+        </section>
+
         <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
           <div className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-200 px-4 py-3">
@@ -411,6 +480,7 @@ export function Dashboard({
                             setSelectedIncidentId(incident.id);
                             setAnalysis(null);
                             setCoach(null);
+                            setRunbookMatch(null);
                             setPostmortem(null);
                           }}
                           type="button"
@@ -453,7 +523,7 @@ export function Dashboard({
             <section className="rounded-md border border-slate-200 bg-white shadow-sm">
               <div className="border-b border-slate-200 px-4 py-3">
                 <h2 className="text-sm font-semibold">Selected incident</h2>
-                <div className="mt-3 grid gap-2 sm:grid-cols-4">
+                <div className="mt-3 grid gap-2 sm:grid-cols-5">
                   <button
                     className="h-9 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={!selectedIncident || isAnalyzing}
@@ -469,6 +539,14 @@ export function Dashboard({
                     type="button"
                   >
                     {isCoaching ? "Coaching..." : "Coach"}
+                  </button>
+                  <button
+                    className="h-9 rounded-md border border-indigo-200 bg-indigo-50 px-3 text-xs font-medium text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={!selectedIncident || isRetrievingRunbook}
+                    onClick={handleRetrieveRunbook}
+                    type="button"
+                  >
+                    {isRetrievingRunbook ? "Finding..." : "Runbook"}
                   </button>
                   <button
                     className="h-9 rounded-md border border-cyan-200 bg-cyan-50 px-3 text-xs font-medium text-cyan-700 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
@@ -541,6 +619,52 @@ export function Dashboard({
                       {selectedIncident.logs}
                     </pre>
                   </div>
+
+                  {runbookMatch ? (
+                    <div className="space-y-3 rounded-md border border-indigo-200 bg-indigo-50 p-3 text-sm">
+                      <div>
+                        <p className="text-xs uppercase text-indigo-600">
+                          Matched runbook
+                        </p>
+                        <p className="mt-1 font-medium text-indigo-950">
+                          {runbookMatch.matched_runbook.title}
+                        </p>
+                        <p className="mt-1 text-indigo-800">
+                          {Math.round(runbookMatch.confidence * 100)} percent
+                          confidence
+                        </p>
+                        <p className="mt-2 text-indigo-900">
+                          {runbookMatch.matched_runbook.summary}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs uppercase text-indigo-600">
+                          Response order
+                        </p>
+                        <ol className="mt-2 list-decimal space-y-2 pl-4 text-indigo-900">
+                          {runbookMatch.suggested_order.map((step) => (
+                            <li key={step}>{step}</li>
+                          ))}
+                        </ol>
+                      </div>
+
+                      <div>
+                        <p className="text-xs uppercase text-indigo-600">
+                          Matched terms
+                        </p>
+                        <p className="mt-1 text-indigo-900">
+                          {runbookMatch.matched_terms.length > 0
+                            ? runbookMatch.matched_terms.join(", ")
+                            : "No exact terms; using closest runbook."}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                      Use Runbook to retrieve the best internal response guide.
+                    </div>
+                  )}
 
                   {coach ? (
                     <div className="space-y-3 rounded-md border border-violet-200 bg-violet-50 p-3 text-sm">

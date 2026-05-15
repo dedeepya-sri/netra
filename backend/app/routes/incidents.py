@@ -14,8 +14,10 @@ from app.schemas.incident import IncidentCoachResponse
 from app.schemas.incident import IncidentCreate
 from app.schemas.incident import IncidentEventResponse
 from app.schemas.incident import IncidentPostmortemResponse
+from app.schemas.incident import IncidentRunbookMatchResponse
 from app.schemas.incident import IncidentResponse
 from app.schemas.incident import IncidentStatusUpdate
+from app.schemas.incident import RunbookResponse
 from app.schemas.incident import ServiceHealthResponse
 
 from app.services.incident_analysis import analyze_incident
@@ -26,6 +28,8 @@ from app.services.incident_events import publish_incident_created
 from app.services.incident_events import publish_incident_updated
 from app.services.incident_events import read_incident_events
 from app.services.incident_generator import generate_incident
+from app.services.runbook_retrieval import list_runbooks
+from app.services.runbook_retrieval import retrieve_runbook_for_incident
 from app.services.service_health import summarize_service_health
 
 router = APIRouter(
@@ -82,6 +86,11 @@ async def list_service_health():
     db.close()
 
     return summarize_service_health(incidents)
+
+
+@router.get("/runbooks", response_model=list[RunbookResponse])
+async def get_runbooks():
+    return list_runbooks()
 
 
 @router.patch("/{incident_id}/status", response_model=IncidentResponse)
@@ -145,6 +154,20 @@ async def get_incident_analysis(incident_id: int):
         raise HTTPException(status_code=404, detail="Incident not found")
 
     return analyze_incident(incident)
+
+
+@router.get("/{incident_id}/runbook", response_model=IncidentRunbookMatchResponse)
+async def get_incident_runbook(incident_id: int):
+    db: Session = SessionLocal()
+
+    incident = db.query(Incident).filter(Incident.id == incident_id).first()
+
+    db.close()
+
+    if incident is None:
+        raise HTTPException(status_code=404, detail="Incident not found")
+
+    return retrieve_runbook_for_incident(incident)
 
 
 @router.get("/{incident_id}/coach", response_model=IncidentCoachResponse)

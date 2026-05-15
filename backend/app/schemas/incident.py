@@ -49,6 +49,26 @@ class ServiceHealthResponse(BaseModel):
     error_rate_percent: float | None
 
 
+class RunbookResponse(BaseModel):
+    id: str
+    title: str
+    service: str
+    summary: str
+    symptoms: list[str]
+    checks: list[str]
+    mitigations: list[str]
+    escalation: str
+
+
+class IncidentRunbookMatchResponse(BaseModel):
+    incident_id: int
+    query: str
+    matched_runbook: RunbookResponse
+    confidence: float
+    matched_terms: list[str]
+    suggested_order: list[str]
+
+
 class IncidentAnalysisResponse(BaseModel):
     incident_id: int
     summary: str
