@@ -204,6 +204,7 @@ async function fetchBackend(path: string, init?: RequestInit) {
   }
 }
 
+
 export async function getBackendHealth() {
   const response = await fetchBackend("/health", SERVER_READ_OPTIONS);
 
@@ -276,16 +277,27 @@ export async function updateIncidentStatus(
 export async function getRecentIncidentEvents(
   limit = 5,
 ): Promise<IncidentEvent[]> {
-  const response = await fetchBackend(
-    `/incidents/events/recent?limit=${limit}`,
-    SERVER_READ_OPTIONS,
-  );
+  try {
+    const response = await fetchBackend(
+      `/incidents/events/recent?limit=${limit}`,
+      {
+        cache: "no-store",
+      },
+    );
 
-  if (!response.ok) {
-    throw new Error("Failed to fetch incident events");
+    if (!response.ok) {
+      return [];
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error(
+      "Failed to fetch incident events:",
+      error,
+    );
+
+    return [];
   }
-
-  return response.json();
 }
 
 export async function getServiceHealth(): Promise<ServiceHealth[]> {
