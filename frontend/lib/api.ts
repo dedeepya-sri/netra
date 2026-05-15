@@ -1,29 +1,24 @@
 const PUBLIC_BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
+
 const INTERNAL_BACKEND_URL =
   process.env.BACKEND_URL_INTERNAL ?? PUBLIC_BACKEND_URL;
-const USE_INTERNAL_BACKEND = process.env.NETRA_DOCKER === "true";
+
+const USE_INTERNAL_BACKEND =
+  process.env.NETRA_DOCKER === "true";
+
 const BACKEND_URL =
   typeof window === "undefined" && USE_INTERNAL_BACKEND
     ? INTERNAL_BACKEND_URL
     : PUBLIC_BACKEND_URL;
+
 const SHOULD_FALL_BACK_TO_PUBLIC_BACKEND =
   typeof window === "undefined" &&
   USE_INTERNAL_BACKEND &&
   INTERNAL_BACKEND_URL !== PUBLIC_BACKEND_URL;
-const SERVER_READ_OPTIONS: RequestInit =
-  typeof window === "undefined"
-    ? {
-        next: {
-          revalidate: 5,
-        },
-      }
-    : {};
 
-export const INCIDENT_EVENTS_WS_URL = `${PUBLIC_BACKEND_URL.replace(
-  /^http/,
-  "ws",
-)}/incidents/ws`;
+export const INCIDENT_EVENTS_WS_URL =
+  `${PUBLIC_BACKEND_URL.replace(/^http/, "ws")}/incidents/ws`;
 
 export type Incident = {
   id: number;
@@ -159,7 +154,10 @@ export type IncidentSimulationRequest = {
   count: number;
 };
 
-async function fetchBackend(path: string, init?: RequestInit) {
+async function fetchBackend(
+  path: string,
+  init?: RequestInit,
+) {
   const url = `${BACKEND_URL}${path}`;
 
   const mergedInit: RequestInit = {
@@ -168,11 +166,12 @@ async function fetchBackend(path: string, init?: RequestInit) {
   };
 
   try {
-    const response = await fetch(url, mergedInit);
-
-    return response;
+    return await fetch(url, mergedInit);
   } catch (error) {
-    console.error(`Backend fetch failed for ${path}`, error);
+    console.error(
+      `Backend fetch failed for ${path}`,
+      error,
+    );
 
     if (!SHOULD_FALL_BACK_TO_PUBLIC_BACKEND) {
       return new Response(JSON.stringify([]), {
@@ -204,170 +203,127 @@ async function fetchBackend(path: string, init?: RequestInit) {
   }
 }
 
+async function safeJson<T>(
+  response: Response,
+  fallback: T,
+): Promise<T> {
+  try {
+    if (!response.ok) {
+      return fallback;
+    }
+
+    return await response.json();
+  } catch {
+    return fallback;
+  }
+}
 
 export async function getBackendHealth() {
-  const response = await fetchBackend("/health", SERVER_READ_OPTIONS);
+  const response = await fetchBackend("/health");
 
-  if (!response.ok) {
-    throw new Error("Failed to fetch backend health");
-  }
-
-  return response.json();
+  return safeJson(response, {
+    status: "offline",
+  });
 }
 
 export async function getIncidents(): Promise<Incident[]> {
-  const response = await fetchBackend("/incidents/", SERVER_READ_OPTIONS);
+  const response = await fetchBackend("/incidents/");
 
-  if (!response.ok) {
-    throw new Error("Failed to fetch incidents");
-  }
-
-  return response.json();
+  return safeJson(response, []);
 }
 
 export async function generateIncident(): Promise<Incident> {
-  const response = await fetchBackend("/incidents/generate", {
-    method: "POST",
-  });
+  const response = await fetchBackend(
+    "/incidents/generate",
+    {
+      method: "POST",
+    },
+  );
 
-  if (!response.ok) {
-    throw new Error("Failed to generate incident");
-  }
-
-  return response.json();
+  return safeJson(response, {} as Incident);
 }
 
 export async function simulateIncidents(
   payload: IncidentSimulationRequest,
 ): Promise<Incident[]> {
-  const response = await fetchBackend("/incidents/simulate", {
-    body: JSON.stringify(payload),
-    headers: {
-      "Content-Type": "application/json",
+  const response = await fetchBackend(
+    "/incidents/simulate",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     },
-    method: "POST",
-  });
+  );
 
-  if (!response.ok) {
-    throw new Error("Failed to simulate incidents");
-  }
-
-  return response.json();
+  return safeJson(response, []);
 }
 
 export async function updateIncidentStatus(
   incidentId: number,
   status: string,
 ): Promise<Incident> {
-  const response = await fetchBackend(`/incidents/${incidentId}/status`, {
-    body: JSON.stringify({ status }),
-    headers: {
-      "Content-Type": "application/json",
+  const response = await fetchBackend(
+    `/incidents/${incidentId}/status`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status }),
     },
-    method: "PATCH",
-  });
+  );
 
-  if (!response.ok) {
-    throw new Error("Failed to update incident status");
-  }
-
-  return response.json();
+  return safeJson(response, {} as Incident);
 }
 
 export async function getRecentIncidentEvents(
   limit = 5,
 ): Promise<IncidentEvent[]> {
-  try {
-    const response = await fetchBackend(
-      `/incidents/events/recent?limit=${limit}`,
-      {
-        cache: "no-store",
-      },
-    );
+  const response = await fetchBackend(
+    `/incidents/events/recent?limit=${limit}`,
+  );
 
-    if (!response.ok) {
-      return [];
-    }
-
-    return response.json();
-  } catch (error) {
-    console.error(
-      "Failed to fetch incident events:",
-      error,
-    );
-
-    return [];
-  }
+  return safeJson(response, []);
 }
 
 export async function getServiceHealth(): Promise<ServiceHealth[]> {
   const response = await fetchBackend(
     "/incidents/services/health",
-    SERVER_READ_OPTIONS,
   );
 
-  if (!response.ok) {
-    throw new Error("Failed to fetch service health");
-  }
-
-  return response.json();
+  return safeJson(response, []);
 }
 
 export async function getRunbooks(): Promise<Runbook[]> {
-  const response = await fetchBackend("/incidents/runbooks", SERVER_READ_OPTIONS);
+  const response = await fetchBackend(
+    "/incidents/runbooks",
+  );
 
-  if (!response.ok) {
-    throw new Error("Failed to fetch runbooks");
-  }
-
-  return response.json();
+  return safeJson(response, []);
 }
 
 export async function getObservabilitySummary(): Promise<ObservabilitySummary> {
-  try {
-    const response = await fetchBackend(
-      "/incidents/observability",
-      {
-        cache: "no-store",
-      },
-    );
+  const response = await fetchBackend(
+    "/incidents/observability",
+  );
 
-    if (!response.ok) {
-      return {
-        total_incidents: 0,
-        active_incidents: 0,
-        resolved_incidents: 0,
-        mttr_minutes_estimate: 0,
-        status_counts: {},
-        severity_counts: {},
-        average_metrics: {
-          latency_ms: 0,
-          error_rate_percent: 0,
-          cpu_percent: 0,
-          memory_percent: 0,
-        },
-        service_incidents: [],
-      };
-    }
-
-    return response.json();
-  } catch {
-    return {
-      total_incidents: 0,
-      active_incidents: 0,
-      resolved_incidents: 0,
-      mttr_minutes_estimate: 0,
-      status_counts: {},
-      severity_counts: {},
-      average_metrics: {
-        latency_ms: 0,
-        error_rate_percent: 0,
-        cpu_percent: 0,
-        memory_percent: 0,
-      },
-      service_incidents: [],
-    };
-  }
+  return safeJson(response, {
+    total_incidents: 0,
+    active_incidents: 0,
+    resolved_incidents: 0,
+    mttr_minutes_estimate: 0,
+    status_counts: {},
+    severity_counts: {},
+    average_metrics: {
+      latency_ms: 0,
+      error_rate_percent: 0,
+      cpu_percent: 0,
+      memory_percent: 0,
+    },
+    service_incidents: [],
+  });
 }
 
 export async function getIncidentRunbook(
@@ -375,14 +331,9 @@ export async function getIncidentRunbook(
 ): Promise<IncidentRunbookMatch> {
   const response = await fetchBackend(
     `/incidents/${incidentId}/runbook`,
-    SERVER_READ_OPTIONS,
   );
 
-  if (!response.ok) {
-    throw new Error("Failed to fetch incident runbook");
-  }
-
-  return response.json();
+  return safeJson(response, {} as IncidentRunbookMatch);
 }
 
 export async function getIncidentWorkflow(
@@ -390,14 +341,9 @@ export async function getIncidentWorkflow(
 ): Promise<IncidentWorkflow> {
   const response = await fetchBackend(
     `/incidents/${incidentId}/workflow`,
-    SERVER_READ_OPTIONS,
   );
 
-  if (!response.ok) {
-    throw new Error("Failed to fetch incident workflow");
-  }
-
-  return response.json();
+  return safeJson(response, {} as IncidentWorkflow);
 }
 
 export async function analyzeIncident(
@@ -405,14 +351,9 @@ export async function analyzeIncident(
 ): Promise<IncidentAnalysis> {
   const response = await fetchBackend(
     `/incidents/${incidentId}/analysis`,
-    SERVER_READ_OPTIONS,
   );
 
-  if (!response.ok) {
-    throw new Error("Failed to analyze incident");
-  }
-
-  return response.json();
+  return safeJson(response, {} as IncidentAnalysis);
 }
 
 export async function generatePostmortem(
@@ -420,14 +361,9 @@ export async function generatePostmortem(
 ): Promise<IncidentPostmortem> {
   const response = await fetchBackend(
     `/incidents/${incidentId}/postmortem`,
-    SERVER_READ_OPTIONS,
   );
 
-  if (!response.ok) {
-    throw new Error("Failed to generate postmortem");
-  }
-
-  return response.json();
+  return safeJson(response, {} as IncidentPostmortem);
 }
 
 export async function coachIncident(
@@ -435,12 +371,7 @@ export async function coachIncident(
 ): Promise<IncidentCoach> {
   const response = await fetchBackend(
     `/incidents/${incidentId}/coach`,
-    SERVER_READ_OPTIONS,
   );
 
-  if (!response.ok) {
-    throw new Error("Failed to coach incident");
-  }
-
-  return response.json();
+  return safeJson(response, {} as IncidentCoach);
 }
