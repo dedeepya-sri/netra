@@ -42,6 +42,31 @@ def generate_logs():
     return "\n".join(logs)
 
 
+def generate_metrics(severity: str):
+    severity_multiplier = {
+        "low": 1,
+        "medium": 1.35,
+        "high": 1.75,
+        "critical": 2.25,
+    }[severity]
+
+    return {
+        "cpu_percent": round(
+            min(random.uniform(45, 82) * severity_multiplier, 99),
+            2,
+        ),
+        "memory_percent": round(
+            min(random.uniform(55, 88) * severity_multiplier, 99),
+            2,
+        ),
+        "latency_ms": round(random.uniform(180, 850) * severity_multiplier, 2),
+        "error_rate_percent": round(
+            min(random.uniform(0.8, 8.5) * severity_multiplier, 35),
+            2,
+        ),
+    }
+
+
 def generate_incident():
     service = random.choice(SERVICES)
 
@@ -53,9 +78,12 @@ def generate_incident():
 
     logs = generate_logs()
 
+    metrics = generate_metrics(severity)
+
     return {
         "title": title,
         "severity": severity,
         "status": "open",
-        "logs": logs
+        "logs": logs,
+        "metrics": metrics
     }

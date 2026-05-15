@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   INCIDENT_EVENTS_WS_URL,
   analyzeIncident,
+  coachIncident,
   generateIncident,
   generatePostmortem,
   getBackendHealth,
@@ -13,6 +14,7 @@ import {
   updateIncidentStatus,
   type Incident,
   type IncidentAnalysis,
+  type IncidentCoach,
   type IncidentEvent,
   type IncidentPostmortem,
 } from "@/lib/api";
@@ -29,10 +31,10 @@ type DashboardProps = {
 };
 
 const severityStyles: Record<string, string> = {
-  low: "bg-emerald-950 text-emerald-300 border-emerald-800",
-  medium: "bg-amber-950 text-amber-300 border-amber-800",
-  high: "bg-orange-950 text-orange-300 border-orange-800",
-  critical: "bg-rose-950 text-rose-300 border-rose-800",
+  low: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  medium: "bg-amber-50 text-amber-700 border-amber-200",
+  high: "bg-orange-50 text-orange-700 border-orange-200",
+  critical: "bg-rose-50 text-rose-700 border-rose-200",
 };
 
 const dateTimeFormatter = new Intl.DateTimeFormat("en-US", {
@@ -43,6 +45,14 @@ const dateTimeFormatter = new Intl.DateTimeFormat("en-US", {
 
 function formatTimestamp(timestamp: string) {
   return dateTimeFormatter.format(new Date(timestamp));
+}
+
+function formatMetric(value: number | undefined, suffix: string) {
+  if (value === undefined) {
+    return "n/a";
+  }
+
+  return `${value}${suffix}`;
 }
 
 export function Dashboard({
@@ -58,15 +68,24 @@ export function Dashboard({
     initialIncidents[0]?.id ?? null,
   );
   const [analysis, setAnalysis] = useState<IncidentAnalysis | null>(null);
+  const [coach, setCoach] = useState<IncidentCoach | null>(null);
   const [postmortem, setPostmortem] = useState<IncidentPostmortem | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isCoaching, setIsCoaching] = useState(false);
   const [isGeneratingPostmortem, setIsGeneratingPostmortem] = useState(false);
   const [isResolving, setIsResolving] = useState(false);
   const [error, setError] = useState<string | null>(initialError);
 
   const openIncidentCount = useMemo(
     () => incidents.filter((incident) => incident.status === "open").length,
+    [incidents],
+  );
+
+  const investigatingIncidentCount = useMemo(
+    () =>
+      incidents.filter((incident) => incident.status === "investigating")
+        .length,
     [incidents],
   );
 
@@ -128,6 +147,29 @@ export function Dashboard({
       );
     } finally {
       setIsAnalyzing(false);
+    }
+  }
+
+  async function handleCoachIncident() {
+    if (!selectedIncident) {
+      return;
+    }
+
+    setIsCoaching(true);
+    setError(null);
+
+    try {
+      const coachData = await coachIncident(selectedIncident.id);
+
+      setCoach(coachData);
+    } catch (currentError) {
+      setError(
+        currentError instanceof Error
+          ? currentError.message
+          : "Failed to coach incident",
+      );
+    } finally {
+      setIsCoaching(false);
     }
   }
 
@@ -206,61 +248,65 @@ export function Dashboard({
   }, [refreshDashboard]);
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-100">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-6">
-        <header className="flex flex-col gap-4 border-b border-zinc-800 pb-5 md:flex-row md:items-end md:justify-between">
+    <main className="min-h-screen bg-slate-50 text-slate-950">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-5 py-5">
+        <header className="flex flex-col gap-4 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold tracking-normal">Netra</h1>
-            <p className="mt-2 text-sm text-zinc-400">
-              Engineering intelligence console
+            <h1 className="text-3xl font-semibold tracking-normal">
+              Netra incident desk
+            </h1>
+            <p className="mt-2 text-sm text-slate-600">
+              Live incidents, synthetic signals, AI analysis, and postmortems.
             </p>
           </div>
 
           <button
-            className="h-10 w-full border border-cyan-700 bg-cyan-950 px-4 text-sm font-medium text-cyan-100 transition hover:bg-cyan-900 disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
+            className="h-10 w-full rounded-md bg-slate-950 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
             disabled={isGenerating}
             onClick={handleGenerateIncident}
             type="button"
           >
-            {isGenerating ? "Generating..." : "Generate incident"}
+            {isGenerating ? "Creating incident..." : "Create test incident"}
           </button>
         </header>
 
         {error ? (
-          <section className="border border-rose-800 bg-rose-950 px-4 py-3 text-sm text-rose-200">
+          <section className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
             {error}
           </section>
         ) : null}
 
         <section className="grid gap-3 md:grid-cols-3">
-          <div className="border border-zinc-800 bg-zinc-900 p-4">
-            <p className="text-xs uppercase text-zinc-500">Backend</p>
+          <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs uppercase text-slate-500">Backend status</p>
             <p className="mt-2 text-2xl font-semibold">{health.status}</p>
           </div>
 
-          <div className="border border-zinc-800 bg-zinc-900 p-4">
-            <p className="text-xs uppercase text-zinc-500">Open incidents</p>
+          <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs uppercase text-slate-500">Open incidents</p>
             <p className="mt-2 text-2xl font-semibold">{openIncidentCount}</p>
           </div>
 
-          <div className="border border-zinc-800 bg-zinc-900 p-4">
-            <p className="text-xs uppercase text-zinc-500">Stream events</p>
-            <p className="mt-2 text-2xl font-semibold">{events.length}</p>
+          <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs uppercase text-slate-500">In investigation</p>
+            <p className="mt-2 text-2xl font-semibold">
+              {investigatingIncidentCount}
+            </p>
           </div>
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
-          <div className="overflow-hidden border border-zinc-800 bg-zinc-950">
-            <div className="border-b border-zinc-800 px-4 py-3">
-              <h2 className="text-sm font-semibold">Incidents</h2>
+          <div className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-200 px-4 py-3">
+              <h2 className="text-sm font-semibold">Incident queue</h2>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] border-collapse text-left text-sm">
-                <thead className="bg-zinc-900 text-xs uppercase text-zinc-500">
+                <thead className="bg-slate-100 text-xs uppercase text-slate-500">
                   <tr>
                     <th className="px-4 py-3 font-medium">ID</th>
-                    <th className="px-4 py-3 font-medium">Title</th>
+                    <th className="px-4 py-3 font-medium">Incident</th>
                     <th className="px-4 py-3 font-medium">Severity</th>
                     <th className="px-4 py-3 font-medium">Status</th>
                     <th className="px-4 py-3 font-medium">Created</th>
@@ -269,19 +315,20 @@ export function Dashboard({
                 <tbody>
                   {incidents.map((incident) => (
                     <tr
-                      className={`border-t border-zinc-800 ${
+                      className={`border-t border-slate-100 ${
                         selectedIncident?.id === incident.id
-                          ? "bg-zinc-900"
-                          : ""
+                          ? "bg-cyan-50"
+                          : "hover:bg-slate-50"
                       }`}
                       key={incident.id}
                     >
-                      <td className="px-4 py-3 text-zinc-500">
+                      <td className="px-4 py-3 text-slate-500">
                         <button
-                          className="text-cyan-300 hover:text-cyan-200"
+                          className="font-medium text-cyan-700 hover:text-cyan-900"
                           onClick={() => {
                             setSelectedIncidentId(incident.id);
                             setAnalysis(null);
+                            setCoach(null);
                             setPostmortem(null);
                           }}
                           type="button"
@@ -294,34 +341,39 @@ export function Dashboard({
                       </td>
                       <td className="px-4 py-3">
                         <span
-                          className={`border px-2 py-1 text-xs ${
+                          className={`rounded-full border px-2 py-1 text-xs font-medium ${
                             severityStyles[incident.severity] ??
-                            "border-zinc-700 bg-zinc-900 text-zinc-300"
+                            "border-slate-200 bg-slate-100 text-slate-600"
                           }`}
                         >
                           {incident.severity}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-zinc-300">
+                      <td className="px-4 py-3 text-slate-700">
                         {incident.status}
                       </td>
-                      <td className="px-4 py-3 text-zinc-500">
+                      <td className="px-4 py-3 text-slate-500">
                         {formatTimestamp(incident.created_at)}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              {incidents.length === 0 ? (
+                <div className="px-4 py-10 text-center text-sm text-slate-500">
+                  No incidents yet.
+                </div>
+              ) : null}
             </div>
           </div>
 
           <aside className="flex flex-col gap-6">
-            <section className="border border-zinc-800 bg-zinc-950">
-              <div className="border-b border-zinc-800 px-4 py-3">
-                <h2 className="text-sm font-semibold">Incident intelligence</h2>
-                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            <section className="rounded-md border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-200 px-4 py-3">
+                <h2 className="text-sm font-semibold">Selected incident</h2>
+                <div className="mt-3 grid gap-2 sm:grid-cols-4">
                   <button
-                    className="h-9 border border-zinc-700 bg-zinc-900 px-3 text-xs text-zinc-100 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="h-9 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={!selectedIncident || isAnalyzing}
                     onClick={handleAnalyzeIncident}
                     type="button"
@@ -329,15 +381,23 @@ export function Dashboard({
                     {isAnalyzing ? "Analyzing..." : "Analyze"}
                   </button>
                   <button
-                    className="h-9 border border-cyan-800 bg-cyan-950 px-3 text-xs text-cyan-100 hover:bg-cyan-900 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="h-9 rounded-md border border-violet-200 bg-violet-50 px-3 text-xs font-medium text-violet-700 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={!selectedIncident || isCoaching}
+                    onClick={handleCoachIncident}
+                    type="button"
+                  >
+                    {isCoaching ? "Coaching..." : "Coach"}
+                  </button>
+                  <button
+                    className="h-9 rounded-md border border-cyan-200 bg-cyan-50 px-3 text-xs font-medium text-cyan-700 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={!selectedIncident || isGeneratingPostmortem}
                     onClick={handleGeneratePostmortem}
                     type="button"
                   >
-                    {isGeneratingPostmortem ? "Writing..." : "Postmortem"}
+                    {isGeneratingPostmortem ? "Writing..." : "Write report"}
                   </button>
                   <button
-                    className="h-9 border border-emerald-800 bg-emerald-950 px-3 text-xs text-emerald-100 hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="h-9 rounded-md border border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={
                       !selectedIncident ||
                       selectedIncident.status === "resolved" ||
@@ -357,36 +417,134 @@ export function Dashboard({
                     <p className="text-sm font-medium">
                       #{selectedIncident.id} {selectedIncident.title}
                     </p>
-                    <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap border border-zinc-800 bg-black p-3 text-xs leading-5 text-zinc-400">
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                      <div className="rounded-md border border-slate-200 bg-slate-50 p-2">
+                        <p className="text-slate-500">CPU</p>
+                        <p className="mt-1 text-slate-900">
+                          {formatMetric(
+                            selectedIncident.metrics.cpu_percent,
+                            "%",
+                          )}
+                        </p>
+                      </div>
+                      <div className="rounded-md border border-slate-200 bg-slate-50 p-2">
+                        <p className="text-slate-500">Memory</p>
+                        <p className="mt-1 text-slate-900">
+                          {formatMetric(
+                            selectedIncident.metrics.memory_percent,
+                            "%",
+                          )}
+                        </p>
+                      </div>
+                      <div className="rounded-md border border-slate-200 bg-slate-50 p-2">
+                        <p className="text-slate-500">Latency</p>
+                        <p className="mt-1 text-slate-900">
+                          {formatMetric(
+                            selectedIncident.metrics.latency_ms,
+                            "ms",
+                          )}
+                        </p>
+                      </div>
+                      <div className="rounded-md border border-slate-200 bg-slate-50 p-2">
+                        <p className="text-slate-500">Error rate</p>
+                        <p className="mt-1 text-slate-900">
+                          {formatMetric(
+                            selectedIncident.metrics.error_rate_percent,
+                            "%",
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-950 p-3 text-xs leading-5 text-slate-200">
                       {selectedIncident.logs}
                     </pre>
                   </div>
 
-                  {analysis ? (
-                    <div className="space-y-3 text-sm">
+                  {coach ? (
+                    <div className="space-y-3 rounded-md border border-violet-200 bg-violet-50 p-3 text-sm">
                       <div>
-                        <p className="text-xs uppercase text-zinc-500">
-                          Diagnostic analysis
+                        <p className="text-xs uppercase text-violet-600">
+                          AI coach
                         </p>
-                        <p className="mt-1 text-zinc-300">
-                          {analysis.summary}
+                        <p className="mt-1 text-violet-950">
+                          {coach.plain_summary}
+                        </p>
+                        <p className="mt-2 text-violet-800">
+                          {coach.why_it_matters}
                         </p>
                       </div>
 
                       <div>
-                        <p className="text-xs uppercase text-zinc-500">
+                        <p className="text-xs uppercase text-violet-600">
+                          First steps
+                        </p>
+                        <ul className="mt-2 list-disc space-y-2 pl-4 text-violet-900">
+                          {coach.first_steps.map((step) => (
+                            <li key={step}>{step}</li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div>
+                        <p className="text-xs uppercase text-violet-600">
+                          Escalation message
+                        </p>
+                        <p className="mt-1 text-violet-900">
+                          {coach.escalation_message}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                      Use Coach for plain-language guidance for interns and
+                      new responders.
+                    </div>
+                  )}
+
+                  {analysis ? (
+                    <div className="space-y-3 text-sm">
+                      <div>
+                        <p className="text-xs uppercase text-slate-500">
+                          AI analysis
+                        </p>
+                        <p className="mt-1 text-slate-700">
+                          {analysis.summary}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded-md border border-slate-200 bg-slate-50 p-2">
+                          <p className="text-xs uppercase text-slate-500">
+                            Priority
+                          </p>
+                          <p className="mt-1 text-slate-900">
+                            {analysis.priority}
+                          </p>
+                        </div>
+                        <div className="rounded-md border border-slate-200 bg-slate-50 p-2">
+                          <p className="text-xs uppercase text-slate-500">
+                            Risk score
+                          </p>
+                          <p className="mt-1 text-slate-900">
+                            {analysis.risk_score}/100
+                          </p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-xs uppercase text-slate-500">
                           Probable cause
                         </p>
-                        <p className="mt-1 text-zinc-300">
+                        <p className="mt-1 text-slate-700">
                           {analysis.probable_cause}
                         </p>
                       </div>
 
                       <div>
-                        <p className="text-xs uppercase text-zinc-500">
-                          Recommended actions
+                        <p className="text-xs uppercase text-slate-500">
+                          Next actions
                         </p>
-                        <ul className="mt-2 space-y-2 text-zinc-300">
+                        <ul className="mt-2 list-disc space-y-2 pl-4 text-slate-700">
                           {analysis.recommended_actions.map((action) => (
                             <li key={action}>{action}</li>
                           ))}
@@ -394,70 +552,74 @@ export function Dashboard({
                       </div>
                     </div>
                   ) : (
-                    <div className="border border-zinc-800 bg-zinc-900 p-3 text-sm text-zinc-500">
-                      Click Analyze for current impact, probable cause, and
-                      next actions.
+                    <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                      Run analysis to see priority, cause, and next actions.
                     </div>
                   )}
 
                   {postmortem ? (
-                    <div className="space-y-3 border-t border-zinc-800 pt-4 text-sm">
+                    <div className="space-y-3 border-t border-slate-200 pt-4 text-sm">
                       <div>
-                        <p className="text-xs uppercase text-zinc-500">
+                        <p className="text-xs uppercase text-slate-500">
                           {postmortem.title}
                         </p>
-                        <p className="mt-1 text-zinc-300">
+                        <p className="mt-1 text-slate-700">
                           {postmortem.executive_summary}
                         </p>
                       </div>
 
                       <div>
-                        <p className="text-xs uppercase text-zinc-500">
+                        <p className="text-xs uppercase text-slate-500">
                           Root cause
                         </p>
-                        <p className="mt-1 text-zinc-300">
+                        <p className="mt-1 text-slate-700">
                           {postmortem.root_cause}
                         </p>
                       </div>
 
                       <div>
-                        <p className="text-xs uppercase text-zinc-500">
+                        <p className="text-xs uppercase text-slate-500">
                           Resolution
                         </p>
-                        <p className="mt-1 text-zinc-300">
+                        <p className="mt-1 text-slate-700">
                           {postmortem.resolution}
                         </p>
                       </div>
                     </div>
                   ) : (
-                    <div className="border border-zinc-800 bg-zinc-900 p-3 text-sm text-zinc-500">
-                      Click Postmortem for the after-action report format.
+                    <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                      Write a report after analysis or resolution.
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="px-4 py-3 text-sm text-zinc-500">
+                <div className="px-4 py-3 text-sm text-slate-500">
                   No incident selected.
                 </div>
               )}
             </section>
 
-            <section className="border border-zinc-800 bg-zinc-950">
-            <div className="border-b border-zinc-800 px-4 py-3">
-              <h2 className="text-sm font-semibold">Recent events</h2>
+            <section className="rounded-md border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-200 px-4 py-3">
+              <h2 className="text-sm font-semibold">Event stream</h2>
             </div>
 
-            <div className="divide-y divide-zinc-800">
+            <div className="divide-y divide-slate-100">
               {events.map((event) => (
                 <div className="px-4 py-3" key={event.id}>
                   <p className="text-sm font-medium">{event.event_type}</p>
-                  <p className="mt-1 text-sm text-zinc-400">{event.title}</p>
-                  <p className="mt-2 text-xs text-zinc-600">
-                    incident #{event.incident_id} &middot;{" "}
+                  <p className="mt-1 text-sm text-slate-600">{event.title}</p>
+                  <p className="mt-2 text-xs text-slate-500">
+                    incident #{event.incident_id} -{" "}
                     {formatTimestamp(event.created_at)}
                   </p>
                 </div>
               ))}
+              {events.length === 0 ? (
+                <div className="px-4 py-6 text-sm text-slate-500">
+                  No stream events yet.
+                </div>
+              ) : null}
             </div>
             </section>
           </aside>

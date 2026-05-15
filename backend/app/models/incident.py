@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import Column
 from sqlalchemy import DateTime
 from sqlalchemy import Integer
+from sqlalchemy import JSON
 from sqlalchemy import String
 from sqlalchemy import Text
 
@@ -21,6 +22,8 @@ class Incident(Base):
     status = Column(String, nullable=False)
 
     logs = Column(Text, nullable=False)
+
+    metrics = Column(JSON, nullable=False, default=dict)
 
     created_at = Column(
         DateTime,

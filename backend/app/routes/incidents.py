@@ -10,6 +10,7 @@ from app.core.database import SessionLocal
 from app.models.incident import Incident
 
 from app.schemas.incident import IncidentAnalysisResponse
+from app.schemas.incident import IncidentCoachResponse
 from app.schemas.incident import IncidentCreate
 from app.schemas.incident import IncidentEventResponse
 from app.schemas.incident import IncidentPostmortemResponse
@@ -17,6 +18,7 @@ from app.schemas.incident import IncidentResponse
 from app.schemas.incident import IncidentStatusUpdate
 
 from app.services.incident_analysis import analyze_incident
+from app.services.incident_analysis import coach_incident
 from app.services.incident_analysis import generate_postmortem
 from app.services.incident_events import list_recent_incident_events
 from app.services.incident_events import publish_incident_created
@@ -38,7 +40,8 @@ async def create_incident(payload: IncidentCreate):
         title=payload.title,
         severity=payload.severity,
         status=payload.status,
-        logs=payload.logs
+        logs=payload.logs,
+        metrics=payload.metrics
     )
 
     db.add(incident)
@@ -131,6 +134,20 @@ async def get_incident_analysis(incident_id: int):
     return analyze_incident(incident)
 
 
+@router.get("/{incident_id}/coach", response_model=IncidentCoachResponse)
+async def get_incident_coach(incident_id: int):
+    db: Session = SessionLocal()
+
+    incident = db.query(Incident).filter(Incident.id == incident_id).first()
+
+    db.close()
+
+    if incident is None:
+        raise HTTPException(status_code=404, detail="Incident not found")
+
+    return coach_incident(incident)
+
+
 @router.get("/{incident_id}/postmortem", response_model=IncidentPostmortemResponse)
 async def get_incident_postmortem(incident_id: int):
     db: Session = SessionLocal()
@@ -155,7 +172,8 @@ async def generate_synthetic_incident():
         title=generated["title"],
         severity=generated["severity"],
         status=generated["status"],
-        logs=generated["logs"]
+        logs=generated["logs"],
+        metrics=generated["metrics"]
     )
 
     db.add(incident)

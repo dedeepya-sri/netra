@@ -7,6 +7,7 @@ export type Incident = {
   severity: string;
   status: string;
   logs: string;
+  metrics: Record<string, number>;
   created_at: string;
 };
 
@@ -25,6 +26,8 @@ export type IncidentAnalysis = {
   summary: string;
   probable_cause: string;
   impact: string;
+  risk_score: number;
+  priority: string;
   signals: string[];
   recommended_actions: string[];
 };
@@ -38,6 +41,15 @@ export type IncidentPostmortem = {
   detection: string;
   resolution: string;
   follow_up_actions: string[];
+};
+
+export type IncidentCoach = {
+  incident_id: number;
+  plain_summary: string;
+  why_it_matters: string;
+  first_steps: string[];
+  escalation_message: string;
+  questions_to_ask: string[];
 };
 
 export async function getBackendHealth() {
@@ -138,6 +150,20 @@ export async function generatePostmortem(
 
   if (!response.ok) {
     throw new Error("Failed to generate postmortem");
+  }
+
+  return response.json();
+}
+
+export async function coachIncident(
+  incidentId: number,
+): Promise<IncidentCoach> {
+  const response = await fetch(`${BACKEND_URL}/incidents/${incidentId}/coach`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to coach incident");
   }
 
   return response.json();

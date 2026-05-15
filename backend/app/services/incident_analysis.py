@@ -1,6 +1,46 @@
 from app.models.incident import Incident
 from app.schemas.incident import IncidentAnalysisResponse
+from app.schemas.incident import IncidentCoachResponse
 from app.schemas.incident import IncidentPostmortemResponse
+
+
+SEVERITY_BASE_RISK = {
+    "low": 20,
+    "medium": 40,
+    "high": 65,
+    "critical": 85,
+}
+
+
+def _calculate_risk_score(severity: str, metrics: dict[str, float]) -> int:
+    score = SEVERITY_BASE_RISK.get(severity, 35)
+
+    latency_ms = metrics.get("latency_ms", 0)
+    error_rate_percent = metrics.get("error_rate_percent", 0)
+    cpu_percent = metrics.get("cpu_percent", 0)
+    memory_percent = metrics.get("memory_percent", 0)
+
+    if latency_ms >= 1000:
+        score += 8
+    if error_rate_percent >= 10:
+        score += 12
+    if cpu_percent >= 90:
+        score += 6
+    if memory_percent >= 90:
+        score += 6
+
+    return min(score, 100)
+
+
+def _priority_from_risk_score(risk_score: int) -> str:
+    if risk_score >= 90:
+        return "P0"
+    if risk_score >= 70:
+        return "P1"
+    if risk_score >= 45:
+        return "P2"
+
+    return "P3"
 
 
 def analyze_incident(incident: Incident) -> IncidentAnalysisResponse:
@@ -12,6 +52,9 @@ def analyze_incident(incident: Incident) -> IncidentAnalysisResponse:
 
     signals = log_lines[:5]
     lower_logs = incident.logs.lower()
+    metrics = incident.metrics or {}
+    risk_score = _calculate_risk_score(incident.severity, metrics)
+    priority = _priority_from_risk_score(risk_score)
 
     probable_cause = "Service degradation detected from correlated log signals"
     recommended_actions = [
@@ -56,9 +99,19 @@ def analyze_incident(incident: Incident) -> IncidentAnalysisResponse:
         f"{incident.title.split()[0]} with status {incident.status}."
     )
 
+    if metrics:
+        impact = (
+            f"{impact} Current telemetry shows "
+            f"{metrics.get('latency_ms', 0)}ms latency, "
+            f"{metrics.get('error_rate_percent', 0)} percent error rate, "
+            f"{metrics.get('cpu_percent', 0)} percent CPU, and "
+            f"{metrics.get('memory_percent', 0)} percent memory usage."
+        )
+
     summary = (
         f"{incident.title} is currently {incident.status}. "
-        f"Netra found {len(log_lines)} relevant log signals."
+        f"Netra found {len(log_lines)} relevant log signals "
+        f"and {len(metrics)} metric signals."
     )
 
     return IncidentAnalysisResponse(
@@ -66,6 +119,8 @@ def analyze_incident(incident: Incident) -> IncidentAnalysisResponse:
         summary=summary,
         probable_cause=probable_cause,
         impact=impact,
+        risk_score=risk_score,
+        priority=priority,
         signals=signals,
         recommended_actions=recommended_actions,
     )
@@ -93,4 +148,41 @@ def generate_postmortem(incident: Incident) -> IncidentPostmortemResponse:
             "service health metrics."
         ),
         follow_up_actions=analysis.recommended_actions,
+    )
+
+
+def coach_incident(incident: Incident) -> IncidentCoachResponse:
+    analysis = analyze_incident(incident)
+    service_name = incident.title.split()[0]
+
+    first_steps = [
+        "Tell the incident lead what you are checking before making changes",
+        *analysis.recommended_actions[:3],
+        "Post findings in the incident channel with timestamps and screenshots",
+    ]
+
+    questions_to_ask = [
+        f"Did {service_name} have a deploy, config change, or traffic spike recently?",
+        "Which customer flows are affected right now?",
+        "What metric needs to return to normal before we call this recovered?",
+    ]
+
+    return IncidentCoachResponse(
+        incident_id=incident.id,
+        plain_summary=(
+            f"{service_name} is showing signs of a "
+            f"{incident.severity} incident. Netra thinks the most likely "
+            f"cause is: {analysis.probable_cause.lower()}."
+        ),
+        why_it_matters=(
+            "This matters because engineers need one clear starting point, "
+            "one owner for each check, and a shared view of customer impact."
+        ),
+        first_steps=first_steps,
+        escalation_message=(
+            f"Please help with incident #{incident.id}: {incident.title}. "
+            f"Priority {analysis.priority}, risk {analysis.risk_score}/100. "
+            f"Suspected cause: {analysis.probable_cause}."
+        ),
+        questions_to_ask=questions_to_ask,
     )

@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from pydantic import BaseModel
+from pydantic import Field
 
 
 class IncidentCreate(BaseModel):
@@ -8,6 +9,7 @@ class IncidentCreate(BaseModel):
     severity: str
     status: str
     logs: str
+    metrics: dict[str, float] = Field(default_factory=dict)
 
 
 class IncidentStatusUpdate(BaseModel):
@@ -20,6 +22,7 @@ class IncidentResponse(BaseModel):
     severity: str
     status: str
     logs: str
+    metrics: dict[str, float]
     created_at: datetime
 
     class Config:
@@ -41,8 +44,19 @@ class IncidentAnalysisResponse(BaseModel):
     summary: str
     probable_cause: str
     impact: str
+    risk_score: int
+    priority: str
     signals: list[str]
     recommended_actions: list[str]
+
+
+class IncidentCoachResponse(BaseModel):
+    incident_id: int
+    plain_summary: str
+    why_it_matters: str
+    first_steps: list[str]
+    escalation_message: str
+    questions_to_ask: list[str]
 
 
 class IncidentPostmortemResponse(BaseModel):
