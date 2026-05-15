@@ -3,8 +3,11 @@ from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
 from app.models.incident import Incident
+
 from app.schemas.incident import IncidentCreate
 from app.schemas.incident import IncidentResponse
+
+from app.services.incident_generator import generate_incident
 
 router = APIRouter(
     prefix="/incidents",
@@ -40,3 +43,24 @@ async def list_incidents():
     db.close()
 
     return incidents
+
+
+@router.post("/generate", response_model=IncidentResponse)
+async def generate_synthetic_incident():
+    db: Session = SessionLocal()
+
+    generated = generate_incident()
+
+    incident = Incident(
+        title=generated["title"],
+        severity=generated["severity"],
+        status=generated["status"]
+    )
+
+    db.add(incident)
+    db.commit()
+    db.refresh(incident)
+
+    db.close()
+
+    return incident
