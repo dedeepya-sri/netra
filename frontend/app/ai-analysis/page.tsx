@@ -2,7 +2,12 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 
-import { analyzeIncident, getIncidents } from "@/lib/api";
+import {
+  type Incident,
+  type IncidentAnalysis,
+  analyzeIncident,
+  getIncidents,
+} from "@/lib/api";
 import { PageHeader } from "@/components/ui/page-header";
 import {
   IncidentStatusBadge,
@@ -11,7 +16,7 @@ import {
 } from "@/components/ui/status-badge";
 
 export default async function AIAnalysisPage() {
-  let incidents = [];
+  let incidents: Incident[] = [];
 
   try {
     incidents = await getIncidents();
@@ -22,7 +27,7 @@ export default async function AIAnalysisPage() {
   const focusIncident =
     incidents.find((incident) => incident.status !== "resolved") ?? incidents[0];
 
-  let analysis = null;
+  let analysis: IncidentAnalysis | null = null;
 
   if (focusIncident) {
     try {

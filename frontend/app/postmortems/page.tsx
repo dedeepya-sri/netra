@@ -2,7 +2,12 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 
-import { generatePostmortem, getIncidents } from "@/lib/api";
+import {
+  type Incident,
+  type IncidentPostmortem,
+  generatePostmortem,
+  getIncidents,
+} from "@/lib/api";
 import { formatTimestamp } from "@/lib/format";
 import { PageHeader } from "@/components/ui/page-header";
 import {
@@ -11,7 +16,7 @@ import {
 } from "@/components/ui/status-badge";
 
 export default async function PostmortemsPage() {
-  let incidents = [];
+  let incidents: Incident[] = [];
 
   try {
     incidents = await getIncidents();
@@ -23,10 +28,13 @@ export default async function PostmortemsPage() {
     (incident) => incident.status === "resolved",
   );
 
-  let postmortems = [];
+  let postmortems: {
+    incident: Incident;
+    postmortem: IncidentPostmortem;
+  }[] = [];
 
   try {
-    postmortems = await Promise.all(
+    const postmortemResults = await Promise.all(
       resolvedIncidents.slice(0, 12).map(async (incident) => {
         try {
           const postmortem = await generatePostmortem(incident.id);
@@ -41,7 +49,14 @@ export default async function PostmortemsPage() {
       }),
     );
 
-    postmortems = postmortems.filter(Boolean);
+    postmortems = postmortemResults.filter(
+      (
+        result,
+      ): result is {
+        incident: Incident;
+        postmortem: IncidentPostmortem;
+      } => result !== null,
+    );
   } catch {
     postmortems = [];
   }

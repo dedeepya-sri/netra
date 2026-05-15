@@ -2,13 +2,13 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 
-import { getIncidents } from "@/lib/api";
+import { type Incident, getIncidents } from "@/lib/api";
 import { formatTimestamp } from "@/lib/format";
 import { PageHeader } from "@/components/ui/page-header";
 import { SeverityBadge } from "@/components/ui/status-badge";
 
 export default async function LogsPage() {
-  let incidents = [];
+  let incidents: Incident[] = [];
 
   try {
     incidents = await getIncidents();

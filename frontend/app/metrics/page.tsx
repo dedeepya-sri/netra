@@ -2,6 +2,8 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 import {
+  type ObservabilitySummary,
+  type ServiceHealth,
   getObservabilitySummary,
   getServiceHealth,
 } from "@/lib/api";
@@ -13,7 +15,7 @@ import { MetricCard } from "@/components/ui/metric-card";
 import { PageHeader } from "@/components/ui/page-header";
 
 export default async function MetricsPage() {
-  let observability = {
+  let observability: Pick<ObservabilitySummary, "average_metrics"> = {
     average_metrics: {
       latency_ms: 0,
       error_rate_percent: 0,
@@ -22,7 +24,7 @@ export default async function MetricsPage() {
     },
   };
 
-  let services = [];
+  let services: ServiceHealth[] = [];
 
   try {
     const [
@@ -104,7 +106,7 @@ export default async function MetricsPage() {
 
         <div className="divide-y divide-slate-100">
           {services.length > 0 ? (
-            services.map((service: any) => (
+            services.map((service) => (
               <div
                 key={service.name}
                 className="grid gap-3 px-4 py-3 text-sm md:grid-cols-[1fr_140px_140px_140px]"

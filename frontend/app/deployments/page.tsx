@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 
-import { getIncidents } from "@/lib/api";
+import { type Incident, getIncidents } from "@/lib/api";
 import { formatTimestamp, serviceNameFromTitle } from "@/lib/format";
 import { PageHeader } from "@/components/ui/page-header";
 import {
@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/status-badge";
 
 export default async function DeploymentsPage() {
-  let incidents = [];
+  let incidents: Incident[] = [];
 
   try {
     incidents = await getIncidents();

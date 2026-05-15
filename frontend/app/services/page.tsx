@@ -2,13 +2,13 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 
-import { getServiceHealth } from "@/lib/api";
+import { type ServiceHealth, getServiceHealth } from "@/lib/api";
 import { formatMetric } from "@/lib/format";
 import { PageHeader } from "@/components/ui/page-header";
 import { HealthBadge } from "@/components/ui/status-badge";
 
 export default async function ServicesPage() {
-  let services = [];
+  let services: ServiceHealth[] = [];
 
   try {
     services = await getServiceHealth();

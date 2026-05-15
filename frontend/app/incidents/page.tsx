@@ -4,6 +4,9 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 import {
+  type Incident,
+  type IncidentEvent,
+  type ObservabilitySummary,
   getIncidents,
   getObservabilitySummary,
   getRecentIncidentEvents,
@@ -16,9 +19,9 @@ import { MetricCard } from "@/components/ui/metric-card";
 import { PageHeader } from "@/components/ui/page-header";
 
 export default async function IncidentsPage() {
-  let incidents = [];
+  let incidents: Incident[] = [];
 
-  let observability = {
+  let observability: Pick<ObservabilitySummary, "status_counts"> = {
     status_counts: {
       open: 0,
       investigating: 0,
@@ -26,7 +29,7 @@ export default async function IncidentsPage() {
     },
   };
 
-  let events = [];
+  let events: IncidentEvent[] = [];
 
   try {
     const [incidentData, observabilityData, eventData] =
