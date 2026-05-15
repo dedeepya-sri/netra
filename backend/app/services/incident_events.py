@@ -21,6 +21,21 @@ def publish_incident_created(incident: Incident) -> str:
     return str(event_id)
 
 
+def _build_incident_event_response(
+    event_id: str,
+    fields: dict[str, str],
+) -> IncidentEventResponse:
+    return IncidentEventResponse(
+        id=str(event_id),
+        event_type=fields["event_type"],
+        incident_id=int(fields["incident_id"]),
+        title=fields["title"],
+        severity=fields["severity"],
+        status=fields["status"],
+        created_at=fields["created_at"],
+    )
+
+
 def list_recent_incident_events(limit: int = 10) -> list[IncidentEventResponse]:
     entries = redis_client.xrevrange(
         INCIDENT_EVENTS_STREAM,
@@ -30,16 +45,28 @@ def list_recent_incident_events(limit: int = 10) -> list[IncidentEventResponse]:
     events = []
 
     for event_id, fields in entries:
-        events.append(
-            IncidentEventResponse(
-                id=str(event_id),
-                event_type=fields["event_type"],
-                incident_id=int(fields["incident_id"]),
-                title=fields["title"],
-                severity=fields["severity"],
-                status=fields["status"],
-                created_at=fields["created_at"],
-            )
-        )
+        events.append(_build_incident_event_response(event_id, fields))
 
     return events
+
+
+def read_incident_events(
+    last_event_id: str,
+    block_ms: int = 5000,
+    count: int = 10,
+) -> tuple[str, list[IncidentEventResponse]]:
+    streams = redis_client.xread(
+        {INCIDENT_EVENTS_STREAM: last_event_id},
+        block=block_ms,
+        count=count,
+    )
+
+    events = []
+    next_event_id = last_event_id
+
+    for _, entries in streams:
+        for event_id, fields in entries:
+            next_event_id = str(event_id)
+            events.append(_build_incident_event_response(event_id, fields))
+
+    return next_event_id, events

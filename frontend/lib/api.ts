@@ -1,4 +1,5 @@
 const BACKEND_URL = "http://127.0.0.1:8000";
+export const INCIDENT_EVENTS_WS_URL = "ws://127.0.0.1:8000/incidents/ws";
 
 export type Incident = {
   id: number;

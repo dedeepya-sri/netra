@@ -1,4 +1,8 @@
+import asyncio
+
 from fastapi import APIRouter
+from fastapi import WebSocket
+from fastapi import WebSocketDisconnect
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
@@ -10,6 +14,7 @@ from app.schemas.incident import IncidentResponse
 
 from app.services.incident_events import list_recent_incident_events
 from app.services.incident_events import publish_incident_created
+from app.services.incident_events import read_incident_events
 from app.services.incident_generator import generate_incident
 
 router = APIRouter(
@@ -54,6 +59,25 @@ async def list_incidents():
 @router.get("/events/recent", response_model=list[IncidentEventResponse])
 async def list_recent_events(limit: int = 10):
     return list_recent_incident_events(limit)
+
+
+@router.websocket("/ws")
+async def stream_incident_events(websocket: WebSocket):
+    await websocket.accept()
+
+    last_event_id = "$"
+
+    try:
+        while True:
+            last_event_id, events = await asyncio.to_thread(
+                read_incident_events,
+                last_event_id,
+            )
+
+            for event in events:
+                await websocket.send_json(event.model_dump(mode="json"))
+    except WebSocketDisconnect:
+        return
 
 
 @router.post("/generate", response_model=IncidentResponse)

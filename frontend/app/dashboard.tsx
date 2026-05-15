@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
+  INCIDENT_EVENTS_WS_URL,
   generateIncident,
   getBackendHealth,
   getIncidents,
@@ -56,7 +57,7 @@ export function Dashboard({
     [incidents],
   );
 
-  async function refreshDashboard() {
+  const refreshDashboard = useCallback(async () => {
     const [healthData, incidentData, eventData] = await Promise.all([
       getBackendHealth(),
       getIncidents(),
@@ -66,7 +67,7 @@ export function Dashboard({
     setHealth(healthData);
     setIncidents(incidentData);
     setEvents(eventData);
-  }
+  }, []);
 
   async function handleGenerateIncident() {
     setIsGenerating(true);
@@ -85,6 +86,32 @@ export function Dashboard({
       setIsGenerating(false);
     }
   }
+
+  useEffect(() => {
+    const socket = new WebSocket(INCIDENT_EVENTS_WS_URL);
+
+    socket.onmessage = (message) => {
+      const event = JSON.parse(message.data) as IncidentEvent;
+
+      if (event.event_type === "incident.created") {
+        refreshDashboard().catch((currentError) => {
+          setError(
+            currentError instanceof Error
+              ? currentError.message
+              : "Failed to refresh dashboard",
+          );
+        });
+      }
+    };
+
+    socket.onerror = () => {
+      setError("Live updates unavailable. Backend data is still accessible.");
+    };
+
+    return () => {
+      socket.close();
+    };
+  }, [refreshDashboard]);
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
