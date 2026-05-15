@@ -20,3 +20,13 @@ class IncidentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class IncidentEventResponse(BaseModel):
+    id: str
+    event_type: str
+    incident_id: int
+    title: str
+    severity: str
+    status: str
+    created_at: datetime

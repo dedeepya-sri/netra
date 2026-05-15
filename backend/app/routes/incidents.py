@@ -5,8 +5,10 @@ from app.core.database import SessionLocal
 from app.models.incident import Incident
 
 from app.schemas.incident import IncidentCreate
+from app.schemas.incident import IncidentEventResponse
 from app.schemas.incident import IncidentResponse
 
+from app.services.incident_events import list_recent_incident_events
 from app.services.incident_events import publish_incident_created
 from app.services.incident_generator import generate_incident
 
@@ -47,6 +49,11 @@ async def list_incidents():
     db.close()
 
     return incidents
+
+
+@router.get("/events/recent", response_model=list[IncidentEventResponse])
+async def list_recent_events(limit: int = 10):
+    return list_recent_incident_events(limit)
 
 
 @router.post("/generate", response_model=IncidentResponse)
