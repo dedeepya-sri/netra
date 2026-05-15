@@ -14,17 +14,20 @@ def publish_incident_updated(incident: Incident) -> str:
 
 
 def publish_incident_event(event_type: str, incident: Incident) -> str:
-    event_id = redis_client.xadd(
-        INCIDENT_EVENTS_STREAM,
-        {
-            "event_type": event_type,
-            "incident_id": str(incident.id),
-            "title": incident.title,
-            "severity": incident.severity,
-            "status": incident.status,
-            "created_at": incident.created_at.isoformat(),
-        },
-    )
+    try:
+        event_id = redis_client.xadd(
+            INCIDENT_EVENTS_STREAM,
+            {
+                "event_type": event_type,
+                "incident_id": str(incident.id),
+                "title": incident.title,
+                "severity": incident.severity,
+                "status": incident.status,
+                "created_at": incident.created_at.isoformat(),
+            },
+        )
+    except Exception:
+        return ""
 
     return str(event_id)
 
@@ -45,10 +48,13 @@ def _build_incident_event_response(
 
 
 def list_recent_incident_events(limit: int = 10) -> list[IncidentEventResponse]:
-    entries = redis_client.xrevrange(
-        INCIDENT_EVENTS_STREAM,
-        count=limit,
-    )
+    try:
+        entries = redis_client.xrevrange(
+            INCIDENT_EVENTS_STREAM,
+            count=limit,
+        )
+    except Exception:
+        return []
 
     events = []
 
@@ -63,11 +69,14 @@ def read_incident_events(
     block_ms: int = 5000,
     count: int = 10,
 ) -> tuple[str, list[IncidentEventResponse]]:
-    streams = redis_client.xread(
-        {INCIDENT_EVENTS_STREAM: last_event_id},
-        block=block_ms,
-        count=count,
-    )
+    try:
+        streams = redis_client.xread(
+            {INCIDENT_EVENTS_STREAM: last_event_id},
+            block=block_ms,
+            count=count,
+        )
+    except Exception:
+        return last_event_id, []
 
     events = []
     next_event_id = last_event_id

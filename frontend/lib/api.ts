@@ -1,8 +1,12 @@
 const PUBLIC_BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
+  normalizeBackendUrl(
+    process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000",
+  );
 
 const INTERNAL_BACKEND_URL =
-  process.env.BACKEND_URL_INTERNAL ?? PUBLIC_BACKEND_URL;
+  normalizeBackendUrl(
+    process.env.BACKEND_URL_INTERNAL ?? PUBLIC_BACKEND_URL,
+  );
 
 const USE_INTERNAL_BACKEND =
   process.env.NETRA_DOCKER === "true";
@@ -18,6 +22,10 @@ const SHOULD_FALL_BACK_TO_PUBLIC_BACKEND =
   INTERNAL_BACKEND_URL !== PUBLIC_BACKEND_URL;
 
 const FETCH_TIMEOUT_MS = 5000;
+
+function normalizeBackendUrl(url: string) {
+  return url.replace(/\/+$/, "");
+}
 
 export const INCIDENT_EVENTS_WS_URL =
   `${PUBLIC_BACKEND_URL.replace(/^http/, "ws")}/incidents/ws`;

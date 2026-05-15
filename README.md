@@ -32,6 +32,11 @@ Frontend env:
 copy frontend\.env.local.example frontend\.env.local
 ```
 
+For Vercel deployments, set the frontend environment variable
+`NEXT_PUBLIC_BACKEND_URL` to the public FastAPI backend URL. Do not use
+`127.0.0.1` or `localhost` in Vercel; those point at Vercel's runtime, not
+your local machine.
+
 Start infrastructure:
 
 ```bash

@@ -29,6 +29,10 @@ Default values:
 NEXT_PUBLIC_BACKEND_URL=http://127.0.0.1:8000
 ```
 
+For Vercel, set `NEXT_PUBLIC_BACKEND_URL` in the project environment
+variables to the public URL of the deployed FastAPI backend. `127.0.0.1`
+only works for local development.
+
 ## Checks
 
 ```bash
