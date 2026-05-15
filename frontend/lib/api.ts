@@ -281,16 +281,50 @@ export async function getRunbooks(): Promise<Runbook[]> {
 }
 
 export async function getObservabilitySummary(): Promise<ObservabilitySummary> {
-  const response = await fetchBackend(
-    "/incidents/observability",
-    SERVER_READ_OPTIONS,
-  );
+  try {
+    const response = await fetchBackend(
+      "/incidents/observability",
+      {
+        cache: "no-store",
+      },
+    );
 
-  if (!response.ok) {
-    throw new Error("Failed to fetch observability summary");
+    if (!response.ok) {
+      return {
+        total_incidents: 0,
+        active_incidents: 0,
+        resolved_incidents: 0,
+        mttr_minutes_estimate: 0,
+        status_counts: {},
+        severity_counts: {},
+        average_metrics: {
+          latency_ms: 0,
+          error_rate_percent: 0,
+          cpu_percent: 0,
+          memory_percent: 0,
+        },
+        service_incidents: [],
+      };
+    }
+
+    return response.json();
+  } catch {
+    return {
+      total_incidents: 0,
+      active_incidents: 0,
+      resolved_incidents: 0,
+      mttr_minutes_estimate: 0,
+      status_counts: {},
+      severity_counts: {},
+      average_metrics: {
+        latency_ms: 0,
+        error_rate_percent: 0,
+        cpu_percent: 0,
+        memory_percent: 0,
+      },
+      service_incidents: [],
+    };
   }
-
-  return response.json();
 }
 
 export async function getIncidentRunbook(
