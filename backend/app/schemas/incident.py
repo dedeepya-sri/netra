@@ -39,6 +39,16 @@ class IncidentEventResponse(BaseModel):
     created_at: datetime
 
 
+class ServiceHealthResponse(BaseModel):
+    name: str
+    owner: str
+    health: str
+    active_incidents: int
+    latest_severity: str | None
+    latency_ms: float | None
+    error_rate_percent: float | None
+
+
 class IncidentAnalysisResponse(BaseModel):
     incident_id: int
     summary: str

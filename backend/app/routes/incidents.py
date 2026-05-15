@@ -16,6 +16,7 @@ from app.schemas.incident import IncidentEventResponse
 from app.schemas.incident import IncidentPostmortemResponse
 from app.schemas.incident import IncidentResponse
 from app.schemas.incident import IncidentStatusUpdate
+from app.schemas.incident import ServiceHealthResponse
 
 from app.services.incident_analysis import analyze_incident
 from app.services.incident_analysis import coach_incident
@@ -25,6 +26,7 @@ from app.services.incident_events import publish_incident_created
 from app.services.incident_events import publish_incident_updated
 from app.services.incident_events import read_incident_events
 from app.services.incident_generator import generate_incident
+from app.services.service_health import summarize_service_health
 
 router = APIRouter(
     prefix="/incidents",
@@ -69,6 +71,17 @@ async def list_incidents():
 @router.get("/events/recent", response_model=list[IncidentEventResponse])
 async def list_recent_events(limit: int = 10):
     return list_recent_incident_events(limit)
+
+
+@router.get("/services/health", response_model=list[ServiceHealthResponse])
+async def list_service_health():
+    db: Session = SessionLocal()
+
+    incidents = db.query(Incident).all()
+
+    db.close()
+
+    return summarize_service_health(incidents)
 
 
 @router.patch("/{incident_id}/status", response_model=IncidentResponse)

@@ -11,12 +11,14 @@ import {
   getBackendHealth,
   getIncidents,
   getRecentIncidentEvents,
+  getServiceHealth,
   updateIncidentStatus,
   type Incident,
   type IncidentAnalysis,
   type IncidentCoach,
   type IncidentEvent,
   type IncidentPostmortem,
+  type ServiceHealth,
 } from "@/lib/api";
 
 type Health = {
@@ -27,6 +29,7 @@ type DashboardProps = {
   initialHealth: Health;
   initialIncidents: Incident[];
   initialEvents: IncidentEvent[];
+  initialServiceHealth: ServiceHealth[];
   initialError: string | null;
 };
 
@@ -34,6 +37,13 @@ const severityStyles: Record<string, string> = {
   low: "bg-emerald-50 text-emerald-700 border-emerald-200",
   medium: "bg-amber-50 text-amber-700 border-amber-200",
   high: "bg-orange-50 text-orange-700 border-orange-200",
+  critical: "bg-rose-50 text-rose-700 border-rose-200",
+};
+
+const healthStyles: Record<string, string> = {
+  healthy: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  watch: "bg-sky-50 text-sky-700 border-sky-200",
+  degraded: "bg-amber-50 text-amber-700 border-amber-200",
   critical: "bg-rose-50 text-rose-700 border-rose-200",
 };
 
@@ -59,11 +69,13 @@ export function Dashboard({
   initialHealth,
   initialIncidents,
   initialEvents,
+  initialServiceHealth,
   initialError,
 }: DashboardProps) {
   const [health, setHealth] = useState(initialHealth);
   const [incidents, setIncidents] = useState(initialIncidents);
   const [events, setEvents] = useState(initialEvents);
+  const [serviceHealth, setServiceHealth] = useState(initialServiceHealth);
   const [selectedIncidentId, setSelectedIncidentId] = useState(
     initialIncidents[0]?.id ?? null,
   );
@@ -98,15 +110,18 @@ export function Dashboard({
   );
 
   const refreshDashboard = useCallback(async () => {
-    const [healthData, incidentData, eventData] = await Promise.all([
+    const [healthData, incidentData, eventData, serviceHealthData] =
+      await Promise.all([
       getBackendHealth(),
       getIncidents(),
       getRecentIncidentEvents(5),
+      getServiceHealth(),
     ]);
 
     setHealth(healthData);
     setIncidents(incidentData);
     setEvents(eventData);
+    setServiceHealth(serviceHealthData);
   }, []);
 
   async function handleGenerateIncident() {
@@ -292,6 +307,73 @@ export function Dashboard({
             <p className="mt-2 text-2xl font-semibold">
               {investigatingIncidentCount}
             </p>
+          </div>
+        </section>
+
+        <section className="rounded-md border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 px-4 py-3">
+            <h2 className="text-sm font-semibold">Service health</h2>
+          </div>
+
+          <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-5">
+            {serviceHealth.map((service) => (
+              <div
+                className="rounded-md border border-slate-200 bg-slate-50 p-3"
+                key={service.name}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">{service.name}</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {service.owner}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded-full border px-2 py-1 text-xs font-medium ${
+                      healthStyles[service.health] ??
+                      "border-slate-200 bg-white text-slate-600"
+                    }`}
+                  >
+                    {service.health}
+                  </span>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-slate-600">
+                  <div>
+                    <p className="text-slate-500">Active</p>
+                    <p className="mt-1 font-medium text-slate-900">
+                      {service.active_incidents}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Severity</p>
+                    <p className="mt-1 font-medium text-slate-900">
+                      {service.latest_severity ?? "none"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Latency</p>
+                    <p className="mt-1 font-medium text-slate-900">
+                      {formatMetric(service.latency_ms ?? undefined, "ms")}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Errors</p>
+                    <p className="mt-1 font-medium text-slate-900">
+                      {formatMetric(
+                        service.error_rate_percent ?? undefined,
+                        "%",
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {serviceHealth.length === 0 ? (
+              <div className="text-sm text-slate-500">
+                Service health is unavailable until the backend is running.
+              </div>
+            ) : null}
           </div>
         </section>
 

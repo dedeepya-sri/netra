@@ -52,6 +52,16 @@ export type IncidentCoach = {
   questions_to_ask: string[];
 };
 
+export type ServiceHealth = {
+  name: string;
+  owner: string;
+  health: string;
+  active_incidents: number;
+  latest_severity: string | null;
+  latency_ms: number | null;
+  error_rate_percent: number | null;
+};
+
 export async function getBackendHealth() {
   const response = await fetch(`${BACKEND_URL}/health`, {
     cache: "no-store",
@@ -119,6 +129,18 @@ export async function getRecentIncidentEvents(
 
   if (!response.ok) {
     throw new Error("Failed to fetch incident events");
+  }
+
+  return response.json();
+}
+
+export async function getServiceHealth(): Promise<ServiceHealth[]> {
+  const response = await fetch(`${BACKEND_URL}/incidents/services/health`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch service health");
   }
 
   return response.json();
