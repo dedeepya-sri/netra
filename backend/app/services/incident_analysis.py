@@ -1,5 +1,6 @@
 from app.models.incident import Incident
 from app.schemas.incident import IncidentAnalysisResponse
+from app.schemas.incident import IncidentPostmortemResponse
 
 
 def analyze_incident(incident: Incident) -> IncidentAnalysisResponse:
@@ -67,4 +68,29 @@ def analyze_incident(incident: Incident) -> IncidentAnalysisResponse:
         impact=impact,
         signals=signals,
         recommended_actions=recommended_actions,
+    )
+
+
+def generate_postmortem(incident: Incident) -> IncidentPostmortemResponse:
+    analysis = analyze_incident(incident)
+
+    return IncidentPostmortemResponse(
+        incident_id=incident.id,
+        title=f"Postmortem: {incident.title}",
+        executive_summary=(
+            f"{analysis.summary} The incident was classified as "
+            f"{incident.severity} severity and remains {incident.status}."
+        ),
+        customer_impact=analysis.impact,
+        root_cause=analysis.probable_cause,
+        detection=(
+            "Netra detected the incident from synthetic infrastructure "
+            "signals and correlated service logs."
+        ),
+        resolution=(
+            "Resolution is pending operator confirmation. Recommended "
+            "mitigation steps should be executed and validated against "
+            "service health metrics."
+        ),
+        follow_up_actions=analysis.recommended_actions,
     )

@@ -6,12 +6,14 @@ import {
   INCIDENT_EVENTS_WS_URL,
   analyzeIncident,
   generateIncident,
+  generatePostmortem,
   getBackendHealth,
   getIncidents,
   getRecentIncidentEvents,
   type Incident,
   type IncidentAnalysis,
   type IncidentEvent,
+  type IncidentPostmortem,
 } from "@/lib/api";
 
 type Health = {
@@ -55,8 +57,10 @@ export function Dashboard({
     initialIncidents[0]?.id ?? null,
   );
   const [analysis, setAnalysis] = useState<IncidentAnalysis | null>(null);
+  const [postmortem, setPostmortem] = useState<IncidentPostmortem | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isGeneratingPostmortem, setIsGeneratingPostmortem] = useState(false);
   const [error, setError] = useState<string | null>(initialError);
 
   const openIncidentCount = useMemo(
@@ -122,6 +126,29 @@ export function Dashboard({
       );
     } finally {
       setIsAnalyzing(false);
+    }
+  }
+
+  async function handleGeneratePostmortem() {
+    if (!selectedIncident) {
+      return;
+    }
+
+    setIsGeneratingPostmortem(true);
+    setError(null);
+
+    try {
+      const postmortemData = await generatePostmortem(selectedIncident.id);
+
+      setPostmortem(postmortemData);
+    } catch (currentError) {
+      setError(
+        currentError instanceof Error
+          ? currentError.message
+          : "Failed to generate postmortem",
+      );
+    } finally {
+      setIsGeneratingPostmortem(false);
     }
   }
 
@@ -228,6 +255,7 @@ export function Dashboard({
                           onClick={() => {
                             setSelectedIncidentId(incident.id);
                             setAnalysis(null);
+                            setPostmortem(null);
                           }}
                           type="button"
                         >
@@ -262,16 +290,26 @@ export function Dashboard({
 
           <aside className="flex flex-col gap-6">
             <section className="border border-zinc-800 bg-zinc-950">
-              <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
-                <h2 className="text-sm font-semibold">Incident analysis</h2>
-                <button
-                  className="h-8 border border-zinc-700 bg-zinc-900 px-3 text-xs text-zinc-100 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={!selectedIncident || isAnalyzing}
-                  onClick={handleAnalyzeIncident}
-                  type="button"
-                >
-                  {isAnalyzing ? "Analyzing..." : "Analyze"}
-                </button>
+              <div className="border-b border-zinc-800 px-4 py-3">
+                <h2 className="text-sm font-semibold">Incident intelligence</h2>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <button
+                    className="h-9 border border-zinc-700 bg-zinc-900 px-3 text-xs text-zinc-100 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={!selectedIncident || isAnalyzing}
+                    onClick={handleAnalyzeIncident}
+                    type="button"
+                  >
+                    {isAnalyzing ? "Analyzing..." : "Analyze"}
+                  </button>
+                  <button
+                    className="h-9 border border-cyan-800 bg-cyan-950 px-3 text-xs text-cyan-100 hover:bg-cyan-900 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={!selectedIncident || isGeneratingPostmortem}
+                    onClick={handleGeneratePostmortem}
+                    type="button"
+                  >
+                    {isGeneratingPostmortem ? "Writing..." : "Postmortem"}
+                  </button>
+                </div>
               </div>
 
               {selectedIncident ? (
@@ -289,7 +327,7 @@ export function Dashboard({
                     <div className="space-y-3 text-sm">
                       <div>
                         <p className="text-xs uppercase text-zinc-500">
-                          Summary
+                          Diagnostic analysis
                         </p>
                         <p className="mt-1 text-zinc-300">
                           {analysis.summary}
@@ -316,7 +354,47 @@ export function Dashboard({
                         </ul>
                       </div>
                     </div>
-                  ) : null}
+                  ) : (
+                    <div className="border border-zinc-800 bg-zinc-900 p-3 text-sm text-zinc-500">
+                      Click Analyze for current impact, probable cause, and
+                      next actions.
+                    </div>
+                  )}
+
+                  {postmortem ? (
+                    <div className="space-y-3 border-t border-zinc-800 pt-4 text-sm">
+                      <div>
+                        <p className="text-xs uppercase text-zinc-500">
+                          {postmortem.title}
+                        </p>
+                        <p className="mt-1 text-zinc-300">
+                          {postmortem.executive_summary}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs uppercase text-zinc-500">
+                          Root cause
+                        </p>
+                        <p className="mt-1 text-zinc-300">
+                          {postmortem.root_cause}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs uppercase text-zinc-500">
+                          Resolution
+                        </p>
+                        <p className="mt-1 text-zinc-300">
+                          {postmortem.resolution}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="border border-zinc-800 bg-zinc-900 p-3 text-sm text-zinc-500">
+                      Click Postmortem for the after-action report format.
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="px-4 py-3 text-sm text-zinc-500">

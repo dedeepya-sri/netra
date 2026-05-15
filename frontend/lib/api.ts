@@ -29,6 +29,17 @@ export type IncidentAnalysis = {
   recommended_actions: string[];
 };
 
+export type IncidentPostmortem = {
+  incident_id: number;
+  title: string;
+  executive_summary: string;
+  customer_impact: string;
+  root_cause: string;
+  detection: string;
+  resolution: string;
+  follow_up_actions: string[];
+};
+
 export async function getBackendHealth() {
   const response = await fetch(`${BACKEND_URL}/health`, {
     cache: "no-store",
@@ -91,6 +102,23 @@ export async function analyzeIncident(
 
   if (!response.ok) {
     throw new Error("Failed to analyze incident");
+  }
+
+  return response.json();
+}
+
+export async function generatePostmortem(
+  incidentId: number,
+): Promise<IncidentPostmortem> {
+  const response = await fetch(
+    `${BACKEND_URL}/incidents/${incidentId}/postmortem`,
+    {
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to generate postmortem");
   }
 
   return response.json();

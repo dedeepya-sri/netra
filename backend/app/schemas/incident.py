@@ -39,3 +39,14 @@ class IncidentAnalysisResponse(BaseModel):
     impact: str
     signals: list[str]
     recommended_actions: list[str]
+
+
+class IncidentPostmortemResponse(BaseModel):
+    incident_id: int
+    title: str
+    executive_summary: str
+    customer_impact: str
+    root_cause: str
+    detection: str
+    resolution: str
+    follow_up_actions: list[str]
