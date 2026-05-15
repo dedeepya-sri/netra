@@ -158,14 +158,14 @@ async function fetchBackend(
   path: string,
   init?: RequestInit,
 ) {
-  const url = `${BACKEND_URL}${path}`;
-
   const mergedInit: RequestInit = {
     cache: "no-store",
     ...init,
   };
 
   try {
+    const url = `${BACKEND_URL}${path}`;
+
     return await fetch(url, mergedInit);
   } catch (error) {
     console.error(
@@ -203,6 +203,25 @@ async function fetchBackend(
   }
 }
 
+async function backendJson<T>(
+  path: string,
+  fallback: T,
+  init?: RequestInit,
+): Promise<T> {
+  try {
+    const response = await fetchBackend(path, init);
+
+    return safeJson(response, fallback);
+  } catch (error) {
+    console.error(
+      `Backend JSON fallback used for ${path}`,
+      error,
+    );
+
+    return fallback;
+  }
+}
+
 async function safeJson<T>(
   response: Response,
   fallback: T,
@@ -219,35 +238,31 @@ async function safeJson<T>(
 }
 
 export async function getBackendHealth() {
-  const response = await fetchBackend("/health");
-
-  return safeJson(response, {
+  return backendJson("/health", {
     status: "offline",
   });
 }
 
 export async function getIncidents(): Promise<Incident[]> {
-  const response = await fetchBackend("/incidents/");
-
-  return safeJson(response, []);
+  return backendJson("/incidents/", []);
 }
 
 export async function generateIncident(): Promise<Incident> {
-  const response = await fetchBackend(
+  return backendJson(
     "/incidents/generate",
+    {} as Incident,
     {
       method: "POST",
     },
   );
-
-  return safeJson(response, {} as Incident);
 }
 
 export async function simulateIncidents(
   payload: IncidentSimulationRequest,
 ): Promise<Incident[]> {
-  const response = await fetchBackend(
+  return backendJson(
     "/incidents/simulate",
+    [],
     {
       method: "POST",
       headers: {
@@ -256,16 +271,15 @@ export async function simulateIncidents(
       body: JSON.stringify(payload),
     },
   );
-
-  return safeJson(response, []);
 }
 
 export async function updateIncidentStatus(
   incidentId: number,
   status: string,
 ): Promise<Incident> {
-  const response = await fetchBackend(
+  return backendJson(
     `/incidents/${incidentId}/status`,
+    {} as Incident,
     {
       method: "PATCH",
       headers: {
@@ -274,42 +288,33 @@ export async function updateIncidentStatus(
       body: JSON.stringify({ status }),
     },
   );
-
-  return safeJson(response, {} as Incident);
 }
 
 export async function getRecentIncidentEvents(
   limit = 5,
 ): Promise<IncidentEvent[]> {
-  const response = await fetchBackend(
+  return backendJson(
     `/incidents/events/recent?limit=${limit}`,
+    [],
   );
-
-  return safeJson(response, []);
 }
 
 export async function getServiceHealth(): Promise<ServiceHealth[]> {
-  const response = await fetchBackend(
+  return backendJson(
     "/incidents/services/health",
+    [],
   );
-
-  return safeJson(response, []);
 }
 
 export async function getRunbooks(): Promise<Runbook[]> {
-  const response = await fetchBackend(
+  return backendJson(
     "/incidents/runbooks",
+    [],
   );
-
-  return safeJson(response, []);
 }
 
 export async function getObservabilitySummary(): Promise<ObservabilitySummary> {
-  const response = await fetchBackend(
-    "/incidents/observability",
-  );
-
-  return safeJson(response, {
+  return backendJson("/incidents/observability", {
     total_incidents: 0,
     active_incidents: 0,
     resolved_incidents: 0,
@@ -329,49 +334,44 @@ export async function getObservabilitySummary(): Promise<ObservabilitySummary> {
 export async function getIncidentRunbook(
   incidentId: number,
 ): Promise<IncidentRunbookMatch> {
-  const response = await fetchBackend(
+  return backendJson(
     `/incidents/${incidentId}/runbook`,
+    {} as IncidentRunbookMatch,
   );
-
-  return safeJson(response, {} as IncidentRunbookMatch);
 }
 
 export async function getIncidentWorkflow(
   incidentId: number,
 ): Promise<IncidentWorkflow> {
-  const response = await fetchBackend(
+  return backendJson(
     `/incidents/${incidentId}/workflow`,
+    {} as IncidentWorkflow,
   );
-
-  return safeJson(response, {} as IncidentWorkflow);
 }
 
 export async function analyzeIncident(
   incidentId: number,
 ): Promise<IncidentAnalysis> {
-  const response = await fetchBackend(
+  return backendJson(
     `/incidents/${incidentId}/analysis`,
+    {} as IncidentAnalysis,
   );
-
-  return safeJson(response, {} as IncidentAnalysis);
 }
 
 export async function generatePostmortem(
   incidentId: number,
 ): Promise<IncidentPostmortem> {
-  const response = await fetchBackend(
+  return backendJson(
     `/incidents/${incidentId}/postmortem`,
+    {} as IncidentPostmortem,
   );
-
-  return safeJson(response, {} as IncidentPostmortem);
 }
 
 export async function coachIncident(
   incidentId: number,
 ): Promise<IncidentCoach> {
-  const response = await fetchBackend(
+  return backendJson(
     `/incidents/${incidentId}/coach`,
+    {} as IncidentCoach,
   );
-
-  return safeJson(response, {} as IncidentCoach);
 }
