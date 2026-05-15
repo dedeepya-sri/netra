@@ -1,8 +1,15 @@
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-import { getObservabilitySummary, getServiceHealth } from "@/lib/api";
+import {
+  getObservabilitySummary,
+  getServiceHealth,
+} from "@/lib/api";
+
 import { formatMetric } from "@/lib/format";
+
 import { MetricCard } from "@/components/ui/metric-card";
+
 import { PageHeader } from "@/components/ui/page-header";
 
 export default async function MetricsPage() {
@@ -18,29 +25,40 @@ export default async function MetricsPage() {
   let services = [];
 
   try {
-    const result = await Promise.all([
+    const [
+      observabilityResult,
+      servicesResult,
+    ] = await Promise.all([
       getObservabilitySummary(),
       getServiceHealth(),
     ]);
 
-    observability = result[0];
-    services = result[1];
-  } catch {
+    observability =
+      observabilityResult || observability;
+
+    services = servicesResult || [];
+  } catch (error) {
+    console.error(
+      "Failed loading metrics page:",
+      error,
+    );
+
     services = [];
   }
 
   return (
     <>
       <PageHeader
-        description="Operational telemetry rollups from generated incidents and service health."
         title="Metrics"
+        description="Operational telemetry rollups from generated incidents and service health."
       />
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           label="Average latency"
           value={formatMetric(
-            observability.average_metrics.latency_ms,
+            observability.average_metrics
+              ?.latency_ms ?? 0,
             "ms",
           )}
           detail="Across incidents"
@@ -49,7 +67,8 @@ export default async function MetricsPage() {
         <MetricCard
           label="Average error rate"
           value={formatMetric(
-            observability.average_metrics.error_rate_percent,
+            observability.average_metrics
+              ?.error_rate_percent ?? 0,
             "%",
           )}
           detail="Across incidents"
@@ -58,7 +77,8 @@ export default async function MetricsPage() {
         <MetricCard
           label="Average CPU"
           value={formatMetric(
-            observability.average_metrics.cpu_percent,
+            observability.average_metrics
+              ?.cpu_percent ?? 0,
             "%",
           )}
           detail="Synthetic host signal"
@@ -67,7 +87,8 @@ export default async function MetricsPage() {
         <MetricCard
           label="Average memory"
           value={formatMetric(
-            observability.average_metrics.memory_percent,
+            observability.average_metrics
+              ?.memory_percent ?? 0,
             "%",
           )}
           detail="Synthetic host signal"
@@ -83,23 +104,36 @@ export default async function MetricsPage() {
 
         <div className="divide-y divide-slate-100">
           {services.length > 0 ? (
-            services.map((service) => (
+            services.map((service: any) => (
               <div
-                className="grid gap-3 px-4 py-3 text-sm md:grid-cols-[1fr_140px_140px_140px]"
                 key={service.name}
+                className="grid gap-3 px-4 py-3 text-sm md:grid-cols-[1fr_140px_140px_140px]"
               >
-                <p className="font-medium">{service.name}</p>
-
-                <p className="text-slate-600">
-                  {formatMetric(service.latency_ms, "ms")} latency
+                <p className="font-medium">
+                  {service.name}
                 </p>
 
                 <p className="text-slate-600">
-                  {formatMetric(service.error_rate_percent, "%")} errors
+                  {formatMetric(
+                    service.latency_ms ?? 0,
+                    "ms",
+                  )}{" "}
+                  latency
                 </p>
 
                 <p className="text-slate-600">
-                  {service.active_incidents} active incidents
+                  {formatMetric(
+                    service.error_rate_percent ??
+                      0,
+                    "%",
+                  )}{" "}
+                  errors
+                </p>
+
+                <p className="text-slate-600">
+                  {service.active_incidents ??
+                    0}{" "}
+                  active incidents
                 </p>
               </div>
             ))
