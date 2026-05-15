@@ -19,6 +19,7 @@ type DashboardProps = {
   initialHealth: Health;
   initialIncidents: Incident[];
   initialEvents: IncidentEvent[];
+  initialError: string | null;
 };
 
 const severityStyles: Record<string, string> = {
@@ -28,16 +29,27 @@ const severityStyles: Record<string, string> = {
   critical: "bg-rose-950 text-rose-300 border-rose-800",
 };
 
+const dateTimeFormatter = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium",
+  timeStyle: "medium",
+  timeZone: "UTC",
+});
+
+function formatTimestamp(timestamp: string) {
+  return dateTimeFormatter.format(new Date(timestamp));
+}
+
 export function Dashboard({
   initialHealth,
   initialIncidents,
   initialEvents,
+  initialError,
 }: DashboardProps) {
   const [health, setHealth] = useState(initialHealth);
   const [incidents, setIncidents] = useState(initialIncidents);
   const [events, setEvents] = useState(initialEvents);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError);
 
   const openIncidentCount = useMemo(
     () => incidents.filter((incident) => incident.status === "open").length,
@@ -158,7 +170,7 @@ export function Dashboard({
                         {incident.status}
                       </td>
                       <td className="px-4 py-3 text-zinc-500">
-                        {new Date(incident.created_at).toLocaleString()}
+                        {formatTimestamp(incident.created_at)}
                       </td>
                     </tr>
                   ))}
@@ -179,7 +191,7 @@ export function Dashboard({
                   <p className="mt-1 text-sm text-zinc-400">{event.title}</p>
                   <p className="mt-2 text-xs text-zinc-600">
                     incident #{event.incident_id} &middot;{" "}
-                    {new Date(event.created_at).toLocaleString()}
+                    {formatTimestamp(event.created_at)}
                   </p>
                 </div>
               ))}
