@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 
 import { analyzeIncident, getIncidents } from "@/lib/api";
@@ -9,10 +11,26 @@ import {
 } from "@/components/ui/status-badge";
 
 export default async function AIAnalysisPage() {
-  const incidents = await getIncidents();
+  let incidents = [];
+
+  try {
+    incidents = await getIncidents();
+  } catch {
+    incidents = [];
+  }
+
   const focusIncident =
     incidents.find((incident) => incident.status !== "resolved") ?? incidents[0];
-  const analysis = focusIncident ? await analyzeIncident(focusIncident.id) : null;
+
+  let analysis = null;
+
+  if (focusIncident) {
+    try {
+      analysis = await analyzeIncident(focusIncident.id);
+    } catch {
+      analysis = null;
+    }
+  }
 
   return (
     <>
@@ -32,25 +50,35 @@ export default async function AIAnalysisPage() {
                 >
                   #{focusIncident.id} {focusIncident.title}
                 </Link>
+
                 <SeverityBadge severity={focusIncident.severity} />
+
                 <IncidentStatusBadge status={focusIncident.status} />
-                <StatusBadge tone="accent">{analysis.priority}</StatusBadge>
+
+                <StatusBadge tone="accent">
+                  {analysis.priority}
+                </StatusBadge>
               </div>
             </div>
+
             <div className="space-y-5 p-4 text-sm text-slate-700">
               <p>{analysis.summary}</p>
+
               <div>
                 <p className="text-xs uppercase tracking-wide text-slate-500">
                   Probable cause
                 </p>
+
                 <p className="mt-1 text-base font-medium text-slate-950">
                   {analysis.probable_cause}
                 </p>
               </div>
+
               <div>
                 <p className="text-xs uppercase tracking-wide text-slate-500">
                   Recommended actions
                 </p>
+
                 <ul className="mt-2 list-disc space-y-2 pl-5">
                   {analysis.recommended_actions.map((action) => (
                     <li key={action}>{action}</li>
@@ -64,9 +92,13 @@ export default async function AIAnalysisPage() {
             <div className="border-b border-slate-200 px-4 py-3">
               <h2 className="text-base font-semibold">Signals</h2>
             </div>
+
             <div className="divide-y divide-slate-100">
               {analysis.signals.map((signal) => (
-                <p className="px-4 py-3 font-mono text-xs text-slate-700" key={signal}>
+                <p
+                  className="px-4 py-3 font-mono text-xs text-slate-700"
+                  key={signal}
+                >
                   {signal}
                 </p>
               ))}

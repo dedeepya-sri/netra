@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 
 import { getIncidents } from "@/lib/api";
@@ -6,7 +8,14 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SeverityBadge } from "@/components/ui/status-badge";
 
 export default async function LogsPage() {
-  const incidents = await getIncidents();
+  let incidents = [];
+
+  try {
+    incidents = await getIncidents();
+  } catch {
+    incidents = [];
+  }
+
   const logEntries = incidents.flatMap((incident) =>
     incident.logs
       .split("\n")
@@ -31,25 +40,37 @@ export default async function LogsPage() {
             Log stream
           </h2>
         </div>
+
         <div className="max-h-[720px] overflow-auto">
-          {logEntries.map((entry) => (
-            <div
-              className="grid gap-3 border-b border-slate-900 px-4 py-2 font-mono text-xs text-slate-300 md:grid-cols-[150px_180px_90px_minmax(0,1fr)]"
-              key={entry.id}
-            >
-              <span className="text-slate-500">
-                {formatTimestamp(entry.incident.created_at)}
-              </span>
-              <Link
-                className="text-sky-300 hover:text-sky-200"
-                href={`/incidents/${entry.incident.id}`}
+          {logEntries.length > 0 ? (
+            logEntries.map((entry) => (
+              <div
+                className="grid gap-3 border-b border-slate-900 px-4 py-2 font-mono text-xs text-slate-300 md:grid-cols-[150px_180px_90px_minmax(0,1fr)]"
+                key={entry.id}
               >
-                {entry.incident.title}
-              </Link>
-              <SeverityBadge severity={entry.incident.severity} />
-              <span className="whitespace-pre-wrap">{entry.line}</span>
+                <span className="text-slate-500">
+                  {formatTimestamp(entry.incident.created_at)}
+                </span>
+
+                <Link
+                  className="text-sky-300 hover:text-sky-200"
+                  href={`/incidents/${entry.incident.id}`}
+                >
+                  {entry.incident.title}
+                </Link>
+
+                <SeverityBadge severity={entry.incident.severity} />
+
+                <span className="whitespace-pre-wrap">
+                  {entry.line}
+                </span>
+              </div>
+            ))
+          ) : (
+            <div className="p-6 text-sm text-slate-400">
+              No logs available.
             </div>
-          ))}
+          )}
         </div>
       </section>
     </>
