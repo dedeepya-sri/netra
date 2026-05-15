@@ -1,12 +1,13 @@
 import asyncio
 
 from fastapi import APIRouter
+from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import WebSocket
 from fastapi import WebSocketDisconnect
 from sqlalchemy.orm import Session
 
-from app.core.database import SessionLocal
+from app.core.database import get_db
 from app.models.incident import Incident
 
 from app.schemas.incident import IncidentAnalysisResponse
@@ -44,9 +45,10 @@ router = APIRouter(
 
 
 @router.post("/", response_model=IncidentResponse)
-async def create_incident(payload: IncidentCreate):
-    db: Session = SessionLocal()
-
+async def create_incident(
+    payload: IncidentCreate,
+    db: Session = Depends(get_db),
+):
     incident = Incident(
         title=payload.title,
         severity=payload.severity,
@@ -61,18 +63,12 @@ async def create_incident(payload: IncidentCreate):
 
     publish_incident_created(incident)
 
-    db.close()
-
     return incident
 
 
 @router.get("/", response_model=list[IncidentResponse])
-async def list_incidents():
-    db: Session = SessionLocal()
-
+async def list_incidents(db: Session = Depends(get_db)):
     incidents = db.query(Incident).all()
-
-    db.close()
 
     return incidents
 
@@ -83,12 +79,8 @@ async def list_recent_events(limit: int = 10):
 
 
 @router.get("/services/health", response_model=list[ServiceHealthResponse])
-async def list_service_health():
-    db: Session = SessionLocal()
-
+async def list_service_health(db: Session = Depends(get_db)):
     incidents = db.query(Incident).all()
-
-    db.close()
 
     return summarize_service_health(incidents)
 
@@ -99,12 +91,8 @@ async def get_runbooks():
 
 
 @router.get("/observability", response_model=ObservabilitySummaryResponse)
-async def get_observability_summary():
-    db: Session = SessionLocal()
-
+async def get_observability_summary(db: Session = Depends(get_db)):
     incidents = db.query(Incident).all()
-
-    db.close()
 
     return summarize_observability(incidents)
 
@@ -113,18 +101,16 @@ async def get_observability_summary():
 async def update_incident_status(
     incident_id: int,
     payload: IncidentStatusUpdate,
+    db: Session = Depends(get_db),
 ):
     allowed_statuses = {"open", "investigating", "resolved"}
 
     if payload.status not in allowed_statuses:
         raise HTTPException(status_code=400, detail="Invalid incident status")
 
-    db: Session = SessionLocal()
-
     incident = db.query(Incident).filter(Incident.id == incident_id).first()
 
     if incident is None:
-        db.close()
         raise HTTPException(status_code=404, detail="Incident not found")
 
     incident.status = payload.status
@@ -133,8 +119,6 @@ async def update_incident_status(
     db.refresh(incident)
 
     publish_incident_updated(incident)
-
-    db.close()
 
     return incident
 
@@ -159,12 +143,11 @@ async def stream_incident_events(websocket: WebSocket):
 
 
 @router.get("/{incident_id}/analysis", response_model=IncidentAnalysisResponse)
-async def get_incident_analysis(incident_id: int):
-    db: Session = SessionLocal()
-
+async def get_incident_analysis(
+    incident_id: int,
+    db: Session = Depends(get_db),
+):
     incident = db.query(Incident).filter(Incident.id == incident_id).first()
-
-    db.close()
 
     if incident is None:
         raise HTTPException(status_code=404, detail="Incident not found")
@@ -173,12 +156,11 @@ async def get_incident_analysis(incident_id: int):
 
 
 @router.get("/{incident_id}/runbook", response_model=IncidentRunbookMatchResponse)
-async def get_incident_runbook(incident_id: int):
-    db: Session = SessionLocal()
-
+async def get_incident_runbook(
+    incident_id: int,
+    db: Session = Depends(get_db),
+):
     incident = db.query(Incident).filter(Incident.id == incident_id).first()
-
-    db.close()
 
     if incident is None:
         raise HTTPException(status_code=404, detail="Incident not found")
@@ -187,12 +169,11 @@ async def get_incident_runbook(incident_id: int):
 
 
 @router.get("/{incident_id}/coach", response_model=IncidentCoachResponse)
-async def get_incident_coach(incident_id: int):
-    db: Session = SessionLocal()
-
+async def get_incident_coach(
+    incident_id: int,
+    db: Session = Depends(get_db),
+):
     incident = db.query(Incident).filter(Incident.id == incident_id).first()
-
-    db.close()
 
     if incident is None:
         raise HTTPException(status_code=404, detail="Incident not found")
@@ -201,12 +182,11 @@ async def get_incident_coach(incident_id: int):
 
 
 @router.get("/{incident_id}/workflow", response_model=IncidentWorkflowResponse)
-async def get_incident_workflow(incident_id: int):
-    db: Session = SessionLocal()
-
+async def get_incident_workflow(
+    incident_id: int,
+    db: Session = Depends(get_db),
+):
     incident = db.query(Incident).filter(Incident.id == incident_id).first()
-
-    db.close()
 
     if incident is None:
         raise HTTPException(status_code=404, detail="Incident not found")
@@ -215,12 +195,11 @@ async def get_incident_workflow(incident_id: int):
 
 
 @router.get("/{incident_id}/postmortem", response_model=IncidentPostmortemResponse)
-async def get_incident_postmortem(incident_id: int):
-    db: Session = SessionLocal()
-
+async def get_incident_postmortem(
+    incident_id: int,
+    db: Session = Depends(get_db),
+):
     incident = db.query(Incident).filter(Incident.id == incident_id).first()
-
-    db.close()
 
     if incident is None:
         raise HTTPException(status_code=404, detail="Incident not found")
@@ -229,9 +208,7 @@ async def get_incident_postmortem(incident_id: int):
 
 
 @router.post("/generate", response_model=IncidentResponse)
-async def generate_synthetic_incident():
-    db: Session = SessionLocal()
-
+async def generate_synthetic_incident(db: Session = Depends(get_db)):
     generated = generate_incident()
 
     incident = Incident(
@@ -248,14 +225,14 @@ async def generate_synthetic_incident():
 
     publish_incident_created(incident)
 
-    db.close()
-
     return incident
 
 
 @router.post("/simulate", response_model=list[IncidentResponse])
-async def simulate_incidents(payload: IncidentSimulationRequest):
-    db: Session = SessionLocal()
+async def simulate_incidents(
+    payload: IncidentSimulationRequest,
+    db: Session = Depends(get_db),
+):
     incidents = []
 
     for _ in range(payload.count):
@@ -279,7 +256,5 @@ async def simulate_incidents(payload: IncidentSimulationRequest):
 
         publish_incident_created(incident)
         incidents.append(incident)
-
-    db.close()
 
     return incidents

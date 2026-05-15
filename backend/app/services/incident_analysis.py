@@ -60,7 +60,6 @@ def analyze_incident(incident: Incident) -> IncidentAnalysisResponse:
     recommended_actions = [
         "Review recent deployments for the affected service",
         "Check service health, error rate, and latency dashboards",
-        "Keep the incident open until recovery is confirmed",
     ]
 
     if "postgres" in lower_logs or "database" in lower_logs:
@@ -114,6 +113,13 @@ def analyze_incident(incident: Incident) -> IncidentAnalysisResponse:
         f"and {len(metrics)} metric signals."
     )
 
+    if incident.status == "resolved":
+        recommended_actions.append(
+            "Review recovery evidence and convert learnings into follow-up work",
+        )
+    else:
+        recommended_actions.append("Keep the incident open until recovery is confirmed")
+
     return IncidentAnalysisResponse(
         incident_id=incident.id,
         summary=summary,
@@ -128,6 +134,52 @@ def analyze_incident(incident: Incident) -> IncidentAnalysisResponse:
 
 def generate_postmortem(incident: Incident) -> IncidentPostmortemResponse:
     analysis = analyze_incident(incident)
+    service_name = incident.title.split()[0]
+    metrics = incident.metrics or {}
+
+    timeline = [
+        f"Detection: Netra generated incident #{incident.id} for {service_name}",
+        f"Triage: Classified as {analysis.priority} with risk {analysis.risk_score}/100",
+        f"Investigation: Found {len(analysis.signals)} log signals and {len(metrics)} metric signals",
+        f"Mitigation: Follow recommended actions for {analysis.probable_cause.lower()}",
+        "Recovery: Validate telemetry before marking resolved",
+    ]
+
+    contributing_factors = [
+        f"{incident.severity.capitalize()} severity signal on {service_name}",
+        f"Incident status is currently {incident.status}",
+        "Synthetic logs indicate dependency or runtime pressure",
+    ]
+
+    if metrics:
+        contributing_factors.append(
+            "Telemetry showed "
+            f"{metrics.get('latency_ms', 0)}ms latency and "
+            f"{metrics.get('error_rate_percent', 0)} percent error rate"
+        )
+
+    prevention_items = [
+        "Add alert coverage for the earliest reliable symptom",
+        "Document rollback or mitigation decision points in the runbook",
+        "Review service ownership and escalation path after the incident",
+    ]
+    resolution = (
+        "Resolution has been confirmed by the operator. Review the incident "
+        "timeline, validate recovery evidence, and track prevention work."
+    )
+
+    if incident.status != "resolved":
+        resolution = (
+            "Resolution is pending operator confirmation. Recommended "
+            "mitigation steps should be executed and validated against "
+            "service health metrics."
+        )
+
+    lessons_learned = [
+        "Clear ownership reduces time spent deciding who should act",
+        "Runbook-backed response makes incidents easier for interns to follow",
+        "Telemetry validation should happen before resolution is announced",
+    ]
 
     return IncidentPostmortemResponse(
         incident_id=incident.id,
@@ -142,11 +194,16 @@ def generate_postmortem(incident: Incident) -> IncidentPostmortemResponse:
             "Netra detected the incident from synthetic infrastructure "
             "signals and correlated service logs."
         ),
-        resolution=(
-            "Resolution is pending operator confirmation. Recommended "
-            "mitigation steps should be executed and validated against "
-            "service health metrics."
-        ),
+        resolution=resolution,
+        timeline=timeline,
+        contributing_factors=contributing_factors,
+        prevention_items=prevention_items,
+        lessons_learned=lessons_learned,
+        owners=[
+            "Incident commander",
+            f"{service_name} service owner",
+            "Platform observability owner",
+        ],
         follow_up_actions=analysis.recommended_actions,
     )
 

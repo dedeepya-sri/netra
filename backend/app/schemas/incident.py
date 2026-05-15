@@ -149,4 +149,9 @@ class IncidentPostmortemResponse(BaseModel):
     root_cause: str
     detection: str
     resolution: str
+    timeline: list[str]
+    contributing_factors: list[str]
+    prevention_items: list[str]
+    lessons_learned: list[str]
+    owners: list[str]
     follow_up_actions: list[str]
